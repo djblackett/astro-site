@@ -36,6 +36,17 @@
   --noise: 0;
 }
 
+/* Refine code blocks appearance */
+:where(pre) {
+  background-color: oklch(var(--base-300));
+  border: 1px solid oklch(var(--base-200));
+  border-radius: var(--radius-box);
+  padding: 1rem 1.25rem;
+}
+:where(code) {
+  font-variant-ligatures: none;
+}
+
 @plugin "daisyui/theme" {
   name: "light";
   default: true;

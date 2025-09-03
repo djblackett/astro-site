@@ -1,0 +1,63 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+const author = 'djblackett';
+const authorPosts = posts.filter((p) => p.data.author === author && !p.data.draft);
+---
+<Layout title="djblackett | Author" description="Posts by djblackett" canonical="https://your-site-url.com/authors/djblackett" ogImage="/favicon.svg">
+  <main class="container mx-auto px-4 py-16">
+    <div class="breadcrumbs text-sm">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li>Authors</li>
+        <li>djblackett</li>
+      </ul>
+    </div>
+    <div class="flex items-center gap-8 mb-8">
+      <div class="avatar">
+        <div class="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+          <img src="https://avatars.githubusercontent.com/u/1813121?v=4" alt="djblackett avatar" />
+        </div>
+      </div>
+      <div>
+        <h1 class="text-4xl font-bold mb-2">DJ Blackett</h1>
+        <span class="badge badge-primary mb-2">Author</span>
+        <p class="mb-4 opacity-80">Web engineer, open source enthusiast, and Astro fan. I build cool stuff with Astro, Tailwind, and DaisyUI.</p>
+        <div class="flex gap-3 mt-2">
+          <a href="mailto:djblackett@gmail.com" class="btn btn-sm btn-outline" title="Email">
+            <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12l-4-4-4 4m8 0v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h8a2 2 0 012 2v4z" /></svg>
+            Email
+          </a>
+          <a href="https://github.com/djblackett" class="btn btn-sm btn-outline" title="GitHub">
+            <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-4 h-4 mr-1" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.012c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.009-.868-.013-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.833.091-.646.35-1.088.636-1.34-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.579.688.481C19.138 20.19 22 16.437 22 12.012 22 6.484 17.523 2 12 2z"/></svg>
+            GitHub
+          </a>
+          <a href="https://twitter.com/djblackett" class="btn btn-sm btn-outline" title="Twitter">
+            <svg xmlns="http://www.w3.org/2000/svg" class="inline-block w-4 h-4 mr-1" viewBox="0 0 24 24" fill="currentColor"><path d="M19.633 7.997c.013.176.013.353.013.53 0 5.387-4.099 11.6-11.6 11.6-2.307 0-4.453-.676-6.263-1.84.32.038.637.051.965.051 1.917 0 3.68-.655 5.086-1.757-1.793-.033-3.307-1.217-3.827-2.847.25.038.507.064.772.064.373 0 .736-.051 1.079-.144-1.872-.377-3.28-2.03-3.28-4.017v-.051c.552.307 1.187.491 1.862.512a4.07 4.07 0 01-1.797-3.39c0-.747.2-1.447.548-2.049a11.6 11.6 0 008.418 4.272c-.069-.298-.104-.607-.104-.926 0-2.236 1.813-4.05 4.05-4.05 1.165 0 2.22.491 2.96 1.28a8.09 8.09 0 002.57-.98c-.084.263-.263.51-.497.656a4.07 4.07 0 01-2.313-.64c.656.02 1.285.253 1.813.507z"/></svg>
+            Twitter
+          </a>
+        </div>
+      </div>
+    </div>
+    <h2 class="text-xl font-bold mb-4">Posts by DJ Blackett</h2>
+    <div class="grid gap-6 md:grid-cols-2">
+      {authorPosts.map((p) => (
+        <a href={`/blog/${p.slug}`} class="card bg-base-200 hover:bg-base-300 transition-colors">
+          <div class="card-body">
+            <h2 class="card-title">{p.data.title}</h2>
+            <p class="text-sm opacity-60">{new Date(p.data.pubDate).toLocaleDateString()}</p>
+            {p.data.description && <p class="opacity-80">{p.data.description}</p>}
+            {p.data.tags?.length ? (
+              <div class="not-prose mt-3 flex flex-wrap gap-2">
+                {p.data.tags.map((t: string) => (
+                  <span class="badge badge-ghost">{t}</span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </a>
+      ))}
+    </div>
+  </main>
+</Layout>

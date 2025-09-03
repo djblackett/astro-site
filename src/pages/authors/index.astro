@@ -1,0 +1,27 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+const authors = Array.from(new Set(posts.map((p) => p.data.author))).sort();
+---
+<Layout title="Authors | Astro Basics" description="Blog authors" canonical="https://your-site-url.com/authors" ogImage="/favicon.svg">
+  <main class="container mx-auto px-4 py-16">
+    <div class="breadcrumbs text-sm">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li>Authors</li>
+      </ul>
+    </div>
+    <h1 class="text-4xl font-bold mb-2">Authors</h1>
+    <div class="grid gap-6 md:grid-cols-3 mt-8">
+      {authors.map((author) => (
+        <a href={`/authors/${author}`} class="card bg-base-200 hover:bg-base-300 transition-colors">
+          <div class="card-body">
+            <h2 class="card-title">{author}</h2>
+            <p class="opacity-80">{posts.filter((p) => p.data.author === author && !p.data.draft).length} posts</p>
+          </div>
+        </a>
+      ))}
+    </div>
+  </main>
+</Layout>

@@ -1,0 +1,32 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <article class="max-w-3xl py-12 px-4 mx-auto">
+    <div class="breadcrumbs text-sm not-prose">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/blog">Blog</a></li>
+        <li>Welcome</li>
+      </ul>
+    </div>
+
+    <h1 class="text-4xl font-bold">Welcome to my blog</h1>
+    <p class="opacity-80 mt-2">Published on 2025-01-01</p>
+
+    <p class="mt-6">
+      Hello! This is a placeholder post to verify routing and styles. I plan to write about web
+      performance, Astro, TypeScript, and developer experience.
+    </p>
+
+    <h2 class="mt-8 text-2xl font-semibold">Topics I cover</h2>
+    <ul class="list-disc ml-6 mt-3 space-y-1">
+      <li>Core Web Vitals and page speed optimization</li>
+      <li>Frontend architecture and design systems</li>
+      <li>Tooling: bundlers, linters, testing</li>
+    </ul>
+
+    <p class="mt-6">Thanks for reading. More posts soon!</p>
+  </article>
+</Layout>

@@ -1,0 +1,114 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+const allTags = Array.from(new Set(posts.flatMap((p) => p.data.tags ?? []))).sort();
+const url = new URL(Astro.url);
+const q = url.searchParams.get('q')?.toLowerCase() ?? '';
+const tag = url.searchParams.get('tag') ?? '';
+const filtered = posts
+  .filter((p) => !p.data.draft)
+  .filter((p) =>
+    (!q || p.data.title.toLowerCase().includes(q) || p.data.description?.toLowerCase().includes(q)) &&
+    (!tag || p.data.tags?.includes(tag))
+  )
+  .sort((a, b) => +new Date(b.data.pubDate) - +new Date(a.data.pubDate));
+
+const pageSize = 6;
+const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+---
+<Layout
+  title="Blog | Astro Basics"
+  description="Notes on engineering, performance, and developer experience."
+  canonical="https://your-site-url.com/blog"
+  ogImage="/favicon.svg"
+>
+  <main class="container mx-auto px-4 py-16">
+    <div class="breadcrumbs text-sm">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li>Blog</li>
+      </ul>
+    </div>
+    <h1 class="text-4xl font-bold">Blog</h1>
+    <p class="mt-2 opacity-80">Notes on engineering, performance, and developer experience.</p>
+
+    <form class="flex flex-wrap gap-4 items-center mt-6 mb-8" method="get">
+      <input type="search" name="q" value={q} placeholder="Search posts..." class="input input-bordered w-full max-w-xs" />
+      <div class="flex flex-wrap gap-2">
+        {allTags.map((t) => (
+          <button
+            type="submit"
+            name="tag"
+            value={t}
+            class={`badge badge-outline cursor-pointer ${tag === t ? 'badge-primary' : ''}`}
+            aria-pressed={tag === t}
+          >
+            {t}
+          </button>
+        ))}
+        {tag && (
+          <button type="submit" name="tag" value="" class="badge badge-error">Clear tag</button>
+        )}
+      </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+
+    <div class="mt-8 grid gap-6 md:grid-cols-2">
+  {paginated.map((p) => {
+        const href = `/blog/${p.slug}`;
+        return (
+          <a href={href} class="card bg-base-200 hover:shadow-xl transition-all">
+            <div class="card-body">
+              <div class="flex gap-3 items-center mb-2">
+                <div class="avatar placeholder">
+                  <div class="bg-primary text-primary-content rounded-full w-8">
+                    <span class="text-sm font-bold">{p.data.author[0].toUpperCase()}</span>
+                  </div>
+                </div>
+                <a href={`/authors/${p.data.author}`} class="badge badge-outline hover:badge-primary">{p.data.author}</a>
+              </div>
+              <h2 class="card-title mb-1">{p.data.title}</h2>
+              <p class="text-sm opacity-60 mb-2">{new Date(p.data.pubDate).toLocaleDateString()}</p>
+              {p.data.description && <p class="opacity-80 mb-2">{p.data.description}</p>}
+              {p.data.tags?.length ? (
+                <div class="not-prose mt-2 flex flex-wrap gap-2">
+                  {p.data.tags.map((t: string) => (
+                    <span class="badge badge-ghost">{t}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+
+    {/* Pagination controls */}
+    <nav class="mt-12 flex justify-center gap-2">
+      {Array.from({ length: totalPages }, (_, i) => (
+        <a
+          href={`?${[q && `q=${encodeURIComponent(q)}`, tag && `tag=${encodeURIComponent(tag)}`, `page=${i + 1}`].filter(Boolean).join('&')}`}
+          class={`btn btn-sm ${page === i + 1 ? 'btn-primary' : 'btn-ghost'}`}
+        >
+          {i + 1}
+        </a>
+      ))}
+    </nav>
+
+    <div class="mt-12">
+      <div class="card bg-base-200">
+        <div class="card-body">
+          <h2 class="card-title">Want updates?</h2>
+          <p>Subscribe to the RSS feed once it's ready. For now, follow on GitHub or LinkedIn.</p>
+          <div class="card-actions">
+            <a href="https://github.com/your-handle" class="btn btn-ghost" target="_blank">GitHub</a>
+            <a href="https://www.linkedin.com/in/your-handle" class="btn btn-outline" target="_blank">LinkedIn</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>

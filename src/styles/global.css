@@ -1,1 +1,13 @@
 @import "tailwindcss";
+/* Code block theming tweaks */
+:where(pre) {
+  border-radius: 0.5rem;
+}
+:where(code) {
+  font-variant-ligatures: none;
+}
+
+/* Prose colors adapt to DaisyUI variables */
+.prose {
+  --tw-prose-body: oklch(var(--base-content));
+}

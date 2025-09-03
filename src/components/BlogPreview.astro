@@ -1,0 +1,33 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+const all = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+const posts = all
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => +new Date(b.data.pubDate) - +new Date(a.data.pubDate))
+  .slice(0, 3);
+---
+
+<section id="blog" class="container mx-auto px-4 py-16">
+  <div class="flex items-end justify-between gap-4">
+    <div>
+  <h2 class="text-3xl font-bold">From the blog</h2>
+      <p class="mt-2 opacity-80">Thoughts on engineering, performance, and developer experience.</p>
+    </div>
+    <a href="/blog" class="btn btn-ghost">View all</a>
+  </div>
+
+  <div class="mt-8 grid gap-6 md:grid-cols-3">
+    {posts.map((p) => {
+      const href = `/blog/${p.slug}`;
+      return (
+        <a href={href} class="card bg-base-200 hover:bg-base-300 transition-colors">
+          <div class="card-body">
+            <h3 class="card-title">{p.data.title}</h3>
+            <p class="text-sm opacity-60">{new Date(p.data.pubDate).toLocaleDateString()}</p>
+            {p.data.description && <p class="opacity-80">{p.data.description}</p>}
+          </div>
+        </a>
+      );
+    })}
+  </div>
+</section>

@@ -1,0 +1,41 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+export async function getStaticPaths() {
+  const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+  return posts.map((p) => ({ params: { slug: p.slug } }));
+}
+import Layout from '../../layouts/Layout.astro';
+
+const { slug } = Astro.params;
+const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+const s = Array.isArray(slug) ? slug.join('/') : (slug as string);
+const entry = posts.find((p) => p.slug === s);
+if (!entry) return Astro.redirect('/blog');
+const { Content } = await entry.render();
+const { data } = entry;
+---
+
+<Layout
+  title={data.title}
+  description={data.description ?? ''}
+  canonical={`https://your-site-url.com/blog/${entry.slug}`}
+  ogImage={'/favicon.svg'}
+>
+  <article class="prose max-w-3xl py-12 px-4 mx-auto">
+    <div class="breadcrumbs text-sm not-prose">
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/blog">Blog</a></li>
+        <li>{data.title}</li>
+      </ul>
+    </div>
+    <h1>{data.title}</h1>
+    <div class="flex gap-2 items-center mt-1">
+      <a href={`/authors/${data.author}`} class="badge badge-outline hover:badge-primary">{data.author}</a>
+    </div>
+    {data.pubDate && (
+      <p class="opacity-70 text-sm">{new Date(data.pubDate).toLocaleDateString()}</p>
+    )}
+    <Content />
+  </article>
+</Layout>
