@@ -11,3 +11,55 @@
 .prose {
   --tw-prose-body: oklch(var(--base-content));
 }
+
+/* Site-wide spacing scale and helpers */
+:root {
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+  --container-px: 1rem; /* default horizontal padding */
+  --section-y: var(--space-12); /* default vertical section padding */
+}
+
+@media (min-width: 640px) {
+  :root {
+    --container-px: 1rem;
+    --section-y: calc(var(--space-12) + var(--space-2));
+  }
+}
+@media (min-width: 768px) {
+  :root {
+    --container-px: 1.5rem;
+    --section-y: var(--space-16);
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --container-px: 2rem;
+  }
+}
+
+.site-container {
+  width: 100%;
+  max-width: 80rem; /* ~1280px */
+  margin-inline: auto;
+  padding-inline: var(--container-px);
+}
+.px-container {
+  padding-inline: var(--container-px);
+}
+.site-section {
+  padding-block: var(--section-y);
+}
+.stack > * + * {
+  margin-top: var(--space-4);
+}
+.stack-lg > * + * {
+  margin-top: var(--space-6);
+}

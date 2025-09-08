@@ -5,23 +5,31 @@ import Toolbar from "../components/Toolbar.astro";
 import Footer from "../components/Footer.astro";
 
 const {
-	title = 'Astro Basics',
+	title = 'Dave Andrea - Software Engineer',
 	description = 'A modern Astro site with blog, author info, and more.',
 	ogImage = '/favicon.svg',
 	canonical = undefined,
 } = Astro.props;
 ---
 
+
 <html lang="en">
 	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
+		<script is:inline>
+			// Prevent FART effect: set theme before rendering
+			if (localStorage.getItem("theme") === null) {
+				document.documentElement.setAttribute("data-theme", "light");
+			} else {
+				document.documentElement.setAttribute("data-theme", localStorage.getItem("theme"));
+			}
+		</script>
+		<script>
+			import { themeChange } from 'theme-change';
+			themeChange();
+		</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{title}</title>
-		<meta name="description" content={description} />
-		<link rel="canonical" href={canonical ?? Astro.url?.href ?? '/'} />
-		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical ?? Astro.url?.href ?? '/'} />
@@ -30,19 +38,20 @@ const {
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
+		<link rel="stylesheet" href="/styles/global.css" />
+		<link rel="stylesheet" href="/assets/app.css" />
 	</head>
 	<body>
-		<Toolbar />
+	
 		<slot />
 		<Footer />
+		<style>
+			html,
+			body {
+				margin: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
 	</body>
 </html>
-
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>

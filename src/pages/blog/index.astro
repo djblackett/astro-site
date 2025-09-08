@@ -25,7 +25,7 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   canonical="https://your-site-url.com/blog"
   ogImage="/favicon.svg"
 >
-  <main class="container mx-auto px-4 py-16">
+  <main class="site-container site-section">
     <div class="breadcrumbs text-sm">
       <ul>
         <li><a href="/">Home</a></li>
@@ -35,8 +35,8 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
     <h1 class="text-4xl font-bold">Blog</h1>
     <p class="mt-2 opacity-80">Notes on engineering, performance, and developer experience.</p>
 
-    <form class="flex flex-wrap gap-4 items-center mt-6 mb-8" method="get">
-      <input type="search" name="q" value={q} placeholder="Search posts..." class="input input-bordered w-full max-w-xs" />
+    <form class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mt-6 mb-8" method="get">
+      <input type="search" name="q" value={q} placeholder="Search posts..." class="input input-bordered w-full sm:max-w-xs" />
       <div class="flex flex-wrap gap-2">
         {allTags.map((t) => (
           <button
@@ -53,10 +53,10 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
           <button type="submit" name="tag" value="" class="badge badge-error">Clear tag</button>
         )}
       </div>
-      <button type="submit" class="btn btn-primary">Search</button>
+  <button type="submit" class="btn btn-primary w-full sm:w-auto">Search</button>
     </form>
 
-    <div class="mt-8 grid gap-6 md:grid-cols-2">
+  <div class="mt-8 grid gap-6 sm:grid-cols-2">
   {paginated.map((p) => {
         const href = `/blog/${p.slug}`;
         return (

@@ -21,7 +21,7 @@ const { data } = entry;
   canonical={`https://your-site-url.com/blog/${entry.slug}`}
   ogImage={'/favicon.svg'}
 >
-  <article class="prose max-w-3xl py-12 px-4 mx-auto">
+  <article class="prose max-w-3xl site-section px-container mx-auto">
     <div class="breadcrumbs text-sm not-prose">
       <ul>
         <li><a href="/">Home</a></li>
@@ -30,7 +30,7 @@ const { data } = entry;
       </ul>
     </div>
     <h1>{data.title}</h1>
-    <div class="flex gap-2 items-center mt-1">
+  <div class="flex gap-2 items-center mt-1">
       <a href={`/authors/${data.author}`} class="badge badge-outline hover:badge-primary">{data.author}</a>
     </div>
     {data.pubDate && (
