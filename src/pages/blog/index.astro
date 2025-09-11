@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { siteLinks } from '../../config/siteLinks';
 import { getCollection, type CollectionEntry } from 'astro:content';
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
 const allTags = Array.from(new Set(posts.flatMap((p) => p.data.tags ?? []))).sort();
@@ -104,8 +105,8 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
           <h2 class="card-title">Want updates?</h2>
           <p>Subscribe to the RSS feed once it's ready. For now, follow on GitHub or LinkedIn.</p>
           <div class="card-actions">
-            <a href="https://github.com/your-handle" class="btn btn-ghost" target="_blank">GitHub</a>
-            <a href="https://www.linkedin.com/in/your-handle" class="btn btn-outline" target="_blank">LinkedIn</a>
+            <a href={siteLinks.github} class="btn btn-ghost" target="_blank">GitHub</a>
+            <a href={siteLinks.linkedin} class="btn btn-outline" target="_blank">LinkedIn</a>
           </div>
         </div>
       </div>
