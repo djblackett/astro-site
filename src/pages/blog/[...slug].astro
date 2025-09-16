@@ -14,19 +14,41 @@ const entry = posts.find((p) => p.slug === s);
 if (!entry) return Astro.redirect('/blog');
 const { Content } = await entry.render();
 const { data } = entry;
+const rawBody = entry.body ?? '';
 // Estimate reading time (~200 wpm)
-const words = entry.body?.split(/\s+/).filter(Boolean).length ?? 0;
+const words = rawBody.split(/\s+/).filter(Boolean).length;
 const minutes = Math.max(1, Math.round(words / 200));
 // Extract h1–h4 headings for ToC (basic regex on raw body markdown)
-const headingMatches = Array.from(entry.body.matchAll(/^#\s+(.+)|^##\s+(.+)|^###\s+(.+)|^####\s+(.+)/gm));
-const toc = headingMatches.map(m => {
-  const level = m[0].startsWith('####') ? 4 : m[0].startsWith('###') ? 3 : m[0].startsWith('##') ? 2 : 1;
-  const text = (m[1] || m[2] || m[3] || m[4] || '').trim();
-  const slugId = text.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-');
-  return { level, text, slugId };
-});
-// Determine previous/next posts by pubDate
-const sorted = posts.slice().sort((a,b) => +new Date(a.data.pubDate) - +new Date(b.data.pubDate));
+const headingMatches = Array.from(
+  rawBody.matchAll(/^#\s+(.+)|^##\s+(.+)|^###\s+(.+)|^####\s+(.+)/gm)
+);
+const slugCounts = new Map<string, number>();
+const toc = headingMatches
+  .map((m, index) => {
+    const level = m[0].startsWith('####')
+      ? 4
+      : m[0].startsWith('###')
+        ? 3
+        : m[0].startsWith('##')
+          ? 2
+          : 1;
+    const text = (m[1] || m[2] || m[3] || m[4] || '').trim();
+    const baseSlug = text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-');
+    const fallback = baseSlug || `section-${index + 1}`;
+    const seen = slugCounts.get(fallback) ?? 0;
+    slugCounts.set(fallback, seen + 1);
+    const slugId = seen === 0 ? fallback : `${fallback}-${seen}`;
+    return text ? { level, text, slugId } : undefined;
+  })
+  .filter((entry): entry is { level: number; text: string; slugId: string } => Boolean(entry?.slugId));
+// Determine previous/next posts by pubDate (excluding drafts)
+const sorted = posts
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => +new Date(a.data.pubDate) - +new Date(b.data.pubDate));
 const idx = sorted.findIndex(p => p.slug === entry.slug);
 const previous = idx > 0 ? sorted[idx - 1] : null;
 const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
@@ -95,7 +117,11 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
               </details>
             </div>
           )}
-          <div class="prose max-w-none px-6 md:px-12 py-8 md:py-12" id="post-content">
+          <div
+            class="prose max-w-none px-6 md:px-12 py-8 md:py-12"
+            id="post-content"
+            data-toc={JSON.stringify(toc)}
+          >
             <Content />
           </div>
           <section class="mt-8 not-prose px-6 md:px-12 pb-10">
@@ -143,91 +169,140 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
         </aside>
       )}
           <script>
-            // Copy link button
-            const btn = document.getElementById('copy-link') as HTMLButtonElement | null;
-            btn?.addEventListener('click', async () => {
-              const url = btn.getAttribute('data-url');
-              if (!url) return;
-              try {
-                await navigator.clipboard.writeText(url);
-                btn.classList.add('btn-success');
-                btn.textContent = 'Copied!';
-                setTimeout(() => { btn.textContent = 'Copy Link'; btn.classList.remove('btn-success'); }, 2200);
-              } catch (e) {
-                btn.textContent = 'Failed';
-              }
-            });
+            // Copy link button with clipboard API + graceful fallback
+            const copyButton = document.getElementById('copy-link');
+            if (copyButton) {
+              copyButton.addEventListener('click', async () => {
+                const url = copyButton.getAttribute('data-url');
+                if (!url) return;
 
-            // ToC: slugify, set heading IDs, smooth scroll highlight
-            /** @param {string} str @returns {string} */
-            const slugify = (str: string) => {
-              return (str || '')
+                const reset = () => {
+                  copyButton.classList.remove('btn-success', 'btn-error');
+                  copyButton.textContent = 'Copy Link';
+                };
+
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(url);
+                  } else {
+                    const fallback = window.prompt('Copy this link', url);
+                    if (fallback === null) {
+                      reset();
+                      return;
+                    }
+                  }
+
+                  copyButton.classList.add('btn-success');
+                  copyButton.textContent = 'Copied!';
+                } catch (error) {
+                  console.error('Failed to copy link', error);
+                  copyButton.classList.add('btn-error');
+                  copyButton.textContent = 'Failed to copy';
+                } finally {
+                  setTimeout(reset, 2200);
+                }
+              });
+            }
+
+            // Helpers for slug/ToC management
+            const slugify = (value) =>
+              (value || '')
                 .toLowerCase()
                 .replace(/[^a-z0-9\s-]/g, '')
                 .trim()
                 .replace(/\s+/g, '-');
-            };
 
-            const contentEl = document.getElementById('post-content') as HTMLElement | null;
-            const headings = contentEl ? (Array.from(contentEl.querySelectorAll('h1, h2, h3, h4')) as HTMLElement[]) : [];
-            const tocEl = document.querySelector('aside.toc') as HTMLElement | null;
-            const tocLinksDesktop = tocEl ? (Array.from(tocEl.querySelectorAll('a')) as HTMLAnchorElement[]) : [];
-            const tocLinksMobile = Array.from(document.querySelectorAll('details.dropdown ul a')) as HTMLAnchorElement[];
-            const tocLinks = ([] as HTMLAnchorElement[]).concat(tocLinksDesktop, tocLinksMobile);
+            const contentEl = document.getElementById('post-content');
+            const headings = contentEl
+              ? Array.from(contentEl.querySelectorAll('h1, h2, h3, h4'))
+              : [];
 
-            // Ensure each heading has an id derived from its ToC text order
-            tocLinks.forEach((a, i) => {
-              const id = slugify(a.textContent || '');
-              const h = headings[i];
-              if (h) {
-                h.id = id;
-                a.setAttribute('href', '#' + id);
+            let tocData = [];
+            if (contentEl?.dataset.toc) {
+              try {
+                tocData = JSON.parse(contentEl.dataset.toc);
+              } catch (error) {
+                console.warn('Unable to parse ToC data', error);
               }
-            });
+              contentEl.removeAttribute('data-toc');
+            }
 
-            // Inject small permalink anchors on h1–h4
-            headings.forEach((h) => {
-              if (!h.id) h.id = slugify(h.textContent || '');
-              // Skip if already present
-              if (h.querySelector('.heading-anchor')) return;
-              const link = document.createElement('a');
-              link.className = 'heading-anchor';
-              link.href = `#${h.id}`;
-              link.setAttribute('aria-label', `Permalink to ${h.textContent || ''}`);
-              link.textContent = '¶';
-              h.appendChild(link);
-            });
+            if (tocData.length && headings.length) {
+              tocData.forEach((entry, index) => {
+                const heading = headings[index];
+                if (!heading) return;
+                const slug = entry.slugId || slugify(heading.textContent || '') || `section-${index + 1}`;
+                if (!heading.id) {
+                  heading.id = slug;
+                }
+              });
+            }
 
-            // Active section highlighting using IntersectionObserver
-            /** @param {string} id */
-            const setActive = (id: string) => {
-              tocLinks.forEach((a) => {
-                const href = a.getAttribute('href') || '';
-                const match = href.startsWith('#') ? href.slice(1) : href;
-                a.classList.toggle('is-active', match === id);
+            const applyAnchors = (anchors) => {
+              anchors.forEach((anchor, index) => {
+                const entry = tocData[index];
+                const heading = headings[index];
+                if (!anchor || !entry || !heading || !heading.id) return;
+                anchor.setAttribute('href', `#${heading.id}`);
+                anchor.dataset.slug = heading.id;
               });
             };
 
+            applyAnchors(Array.from(document.querySelectorAll('aside.toc a')));
+            applyAnchors(Array.from(document.querySelectorAll('details.dropdown ul a')));
+
+            headings.forEach((heading, index) => {
+              if (!heading.id) {
+                heading.id = slugify(heading.textContent || '') || `section-${index + 1}`;
+              }
+              if (heading.querySelector('.heading-anchor')) return;
+              const link = document.createElement('a');
+              link.className = 'heading-anchor';
+              link.href = `#${heading.id}`;
+              link.setAttribute('aria-label', `Permalink to ${heading.textContent || ''}`);
+              link.textContent = '¶';
+              heading.appendChild(link);
+            });
+
+            const allTocAnchors = Array.from(
+              document.querySelectorAll('aside.toc a[data-slug], details.dropdown ul a[data-slug]')
+            );
+            const setActive = (id) => {
+              if (!id) return;
+              allTocAnchors.forEach((anchor) => {
+                anchor.classList.toggle('is-active', anchor.dataset.slug === id);
+              });
+            };
+
+            if (headings[0]?.id) {
+              setActive(headings[0].id);
+            }
+
             if ('IntersectionObserver' in window && headings.length) {
-              const observer = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                  if (entry.isIntersecting) {
-                    setActive(entry.target.id);
+              const observer = new IntersectionObserver(
+                (entries) => {
+                  entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                      setActive(entry.target.id);
+                    }
+                  });
+                },
+                { rootMargin: '0px 0px -70% 0px', threshold: [0, 1] }
+              );
+              headings.forEach((heading) => observer.observe(heading));
+            } else if (headings.length) {
+              const onScroll = () => {
+                const offset = window.scrollY + 120;
+                let currentId = headings[0]?.id || '';
+                headings.forEach((heading) => {
+                  const top = heading.getBoundingClientRect().top + window.scrollY;
+                  if (top <= offset && heading.id) {
+                    currentId = heading.id;
                   }
                 });
-              }, { rootMargin: '0px 0px -70% 0px', threshold: [0, 1] });
-              headings.forEach((h) => observer.observe(h));
-            } else if (headings.length) {
-              // Fallback: scroll handler
-              const onScroll = () => {
-                const y = window.scrollY + 120; // offset for top spacing
-                let currentId = /** @type {HTMLElement} */(headings[0]).id;
-                for (const el of headings) {
-                  const h = /** @type {HTMLElement} */(el);
-                  const top = h.getBoundingClientRect().top + window.scrollY;
-                  if (top <= y) currentId = h.id;
+                if (currentId) {
+                  setActive(currentId);
                 }
-                setActive(currentId);
               };
               window.addEventListener('scroll', onScroll, { passive: true });
               onScroll();
