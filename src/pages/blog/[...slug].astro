@@ -5,6 +5,7 @@ export async function getStaticPaths() {
   return posts.map((p) => ({ params: { slug: p.slug } }));
 }
 import Layout from '../../layouts/Layout.astro';
+import Toolbar from '../../components/Toolbar.astro';
 
 const { slug } = Astro.params;
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
@@ -13,6 +14,22 @@ const entry = posts.find((p) => p.slug === s);
 if (!entry) return Astro.redirect('/blog');
 const { Content } = await entry.render();
 const { data } = entry;
+// Estimate reading time (~200 wpm)
+const words = entry.body?.split(/\s+/).filter(Boolean).length ?? 0;
+const minutes = Math.max(1, Math.round(words / 200));
+// Extract h1–h4 headings for ToC (basic regex on raw body markdown)
+const headingMatches = Array.from(entry.body.matchAll(/^#\s+(.+)|^##\s+(.+)|^###\s+(.+)|^####\s+(.+)/gm));
+const toc = headingMatches.map(m => {
+  const level = m[0].startsWith('####') ? 4 : m[0].startsWith('###') ? 3 : m[0].startsWith('##') ? 2 : 1;
+  const text = (m[1] || m[2] || m[3] || m[4] || '').trim();
+  const slugId = text.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-');
+  return { level, text, slugId };
+});
+// Determine previous/next posts by pubDate
+const sorted = posts.slice().sort((a,b) => +new Date(a.data.pubDate) - +new Date(b.data.pubDate));
+const idx = sorted.findIndex(p => p.slug === entry.slug);
+const previous = idx > 0 ? sorted[idx - 1] : null;
+const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
 ---
 
 <Layout
@@ -20,22 +37,199 @@ const { data } = entry;
   description={data.description ?? ''}
   canonical={`https://your-site-url.com/blog/${entry.slug}`}
   ogImage={'/favicon.svg'}
+  showMobileThemeToolbar={false}
 >
-  <article class="prose max-w-3xl site-section px-container mx-auto">
-    <div class="breadcrumbs text-sm not-prose">
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/blog">Blog</a></li>
-        <li>{data.title}</li>
-      </ul>
-    </div>
-    <h1>{data.title}</h1>
-  <div class="flex gap-2 items-center mt-1">
-      <a href={`/authors/${data.author}`} class="badge badge-outline hover:badge-primary">{data.author}</a>
-    </div>
-    {data.pubDate && (
-      <p class="opacity-70 text-sm">{new Date(data.pubDate).toLocaleDateString()}</p>
-    )}
-    <Content />
-  </article>
-</Layout>
+  <div class="hidden sm:block fixed right-2 top-2 z-50">
+    <Toolbar />
+  </div>
+  <div class="site-section px-container bg-base-100/90 min-h-[100vh]">
+    <div class="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_minmax(0,720px)_260px] lg:gap-10">
+      <div class="breadcrumbs text-sm mb-8 lg:col-span-3">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/blog">Blog</a></li>
+          <li>{data.title}</li>
+        </ul>
+      </div>
+      <article class="rounded-3xl shadow-2xl bg-base-200/90 ring-1 ring-base-300/40 overflow-hidden lg:col-start-2">
+        <div class="p-0 md:p-0">
+          <header class="not-prose px-6 pt-8 pb-4 md:px-12 md:pt-12 md:pb-6 border-b border-base-300/40">
+            <div class="sm:hidden mb-3">
+              <Toolbar />
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-2 text-balance">{data.title}</h1>
+            {data.description && <p class="text-lg md:text-xl opacity-80 font-medium leading-snug mb-3 max-w-prose">{data.description}</p>}
+            <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
+              {data.pubDate && (
+                <time datetime={new Date(data.pubDate).toISOString()} class="inline-flex items-center gap-1">
+                  {new Date(data.pubDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                </time>
+              )}
+              <span aria-label="Estimated reading time" class="inline-flex items-center gap-1">• {minutes} min read</span>
+              {data.updatedDate && (
+                <span class="inline-flex items-center gap-1">• Updated {new Date(data.updatedDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              )}
+            </div>
+            {data.tags?.length ? (
+              <div class="mt-2 flex flex-wrap gap-2 not-prose">
+                {data.tags.map((t: string) => (
+                  <span class="badge badge-outline badge-md px-3 py-1.5 font-semibold tracking-wide" style="text-transform: none;">{t}</span>
+                ))}
+              </div>
+            ) : null}
+          </header>
+          {toc.length >= 1 && (
+            <div class="not-prose lg:hidden mb-6">
+              <details class="dropdown w-full">
+                <summary class="btn btn-sm w-full justify-between">
+                  On this page
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 opacity-70"><path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-6-6a.75.75 0 011.06-1.06L12 14.69l5.47-5.47a.75.75 0 111.06 1.06l-6 6z" clip-rule="evenodd" /></svg>
+                </summary>
+                <ul class="menu menu-sm bg-base-200 w-full mt-2 rounded-box shadow dropdown-content">
+                  {toc.map(h => (
+                    <li>
+                      <a href={`#${h.slugId}`} class={h.level === 1 ? 'font-semibold' : h.level === 2 ? '' : 'pl-4'}>{h.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+          )}
+          <div class="prose max-w-none px-6 md:px-12 py-8 md:py-12" id="post-content">
+            <Content />
+          </div>
+          <section class="mt-8 not-prose px-6 md:px-12 pb-10">
+            <div class="flex flex-col gap-6">
+              <div class="flex flex-wrap gap-3 items-center">
+                <span class="text-sm font-medium opacity-80">Share:</span>
+                <button class="btn btn-xs btn-outline" id="copy-link" data-url={`https://your-site-url.com/blog/${entry.slug}`}>Copy Link</button>
+                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent('https://your-site-url.com/blog/' + entry.slug)}`}>Twitter</a>
+                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://your-site-url.com/blog/' + entry.slug)}`}>LinkedIn</a>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                {previous && (
+                  <a href={`/blog/${previous.slug}`} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition">
+                    <div class="text-xs opacity-70 mb-1">Previous</div>
+                    <div class="font-medium group-hover:text-primary line-clamp-2">{previous.data.title}</div>
+                  </a>
+                )}
+                {next && (
+                  <a href={`/blog/${next.slug}`} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition md:text-right">
+                    <div class="text-xs opacity-70 mb-1">Next</div>
+                    <div class="font-medium group-hover:text-primary line-clamp-2">{next.data.title}</div>
+                  </a>
+                )}
+              </div>
+              <div class="flex justify-between items-center mt-2">
+                <div class="text-sm opacity-70">Thanks for reading.</div>
+                <a href="/blog" class="btn btn-sm btn-primary">← All posts</a>
+              </div>
+            </div>
+          </section>
+          
+          <footer />
+        </div>
+      </article>
+      {toc.length >= 1 && (
+        <aside class="toc hidden lg:block lg:col-start-3 text-sm sticky top-28 h-max">
+          <div class="mb-3 font-semibold tracking-wide uppercase opacity-70">On this page</div>
+          <ul class="space-y-1">
+            {toc.map(h => (
+              <li class={h.level === 3 ? 'pl-3 border-l border-base-300/60 ml-1' : ''}>
+                <a href={`#${h.slugId}`} class="transition-colors line-clamp-2" >{h.text}</a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+          <script>
+            // Copy link button
+            const btn = document.getElementById('copy-link') as HTMLButtonElement | null;
+            btn?.addEventListener('click', async () => {
+              const url = btn.getAttribute('data-url');
+              if (!url) return;
+              try {
+                await navigator.clipboard.writeText(url);
+                btn.classList.add('btn-success');
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = 'Copy Link'; btn.classList.remove('btn-success'); }, 2200);
+              } catch (e) {
+                btn.textContent = 'Failed';
+              }
+            });
+
+            // ToC: slugify, set heading IDs, smooth scroll highlight
+            /** @param {string} str @returns {string} */
+            const slugify = (str: string) => {
+              return (str || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .trim()
+                .replace(/\s+/g, '-');
+            };
+
+            const contentEl = document.getElementById('post-content') as HTMLElement | null;
+            const headings = contentEl ? (Array.from(contentEl.querySelectorAll('h1, h2, h3, h4')) as HTMLElement[]) : [];
+            const tocEl = document.querySelector('aside.toc') as HTMLElement | null;
+            const tocLinksDesktop = tocEl ? (Array.from(tocEl.querySelectorAll('a')) as HTMLAnchorElement[]) : [];
+            const tocLinksMobile = Array.from(document.querySelectorAll('details.dropdown ul a')) as HTMLAnchorElement[];
+            const tocLinks = ([] as HTMLAnchorElement[]).concat(tocLinksDesktop, tocLinksMobile);
+
+            // Ensure each heading has an id derived from its ToC text order
+            tocLinks.forEach((a, i) => {
+              const id = slugify(a.textContent || '');
+              const h = headings[i];
+              if (h) {
+                h.id = id;
+                a.setAttribute('href', '#' + id);
+              }
+            });
+
+            // Inject small permalink anchors on h1–h4
+            headings.forEach((h) => {
+              if (!h.id) h.id = slugify(h.textContent || '');
+              // Skip if already present
+              if (h.querySelector('.heading-anchor')) return;
+              const link = document.createElement('a');
+              link.className = 'heading-anchor';
+              link.href = `#${h.id}`;
+              link.setAttribute('aria-label', `Permalink to ${h.textContent || ''}`);
+              link.textContent = '¶';
+              h.appendChild(link);
+            });
+
+            // Active section highlighting using IntersectionObserver
+            /** @param {string} id */
+            const setActive = (id: string) => {
+              tocLinks.forEach((a) => {
+                const href = a.getAttribute('href') || '';
+                const match = href.startsWith('#') ? href.slice(1) : href;
+                a.classList.toggle('is-active', match === id);
+              });
+            };
+
+            if ('IntersectionObserver' in window && headings.length) {
+              const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                  if (entry.isIntersecting) {
+                    setActive(entry.target.id);
+                  }
+                });
+              }, { rootMargin: '0px 0px -70% 0px', threshold: [0, 1] });
+              headings.forEach((h) => observer.observe(h));
+            } else if (headings.length) {
+              // Fallback: scroll handler
+              const onScroll = () => {
+                const y = window.scrollY + 120; // offset for top spacing
+                let currentId = /** @type {HTMLElement} */(headings[0]).id;
+                for (const el of headings) {
+                  const h = /** @type {HTMLElement} */(el);
+                  const top = h.getBoundingClientRect().top + window.scrollY;
+                  if (top <= y) currentId = h.id;
+                }
+                setActive(currentId);
+              };
+              window.addEventListener('scroll', onScroll, { passive: true });
+              onScroll();
+            }
+          </script>

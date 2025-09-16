@@ -6,9 +6,10 @@ import Footer from "../components/Footer.astro";
 
 const {
 	title = 'Dave Andrea - Software Engineer',
-	description = 'A modern Astro site with blog, author info, and more.',
+	description = 'A modern Astro site with a blog and more.',
 	ogImage = '/favicon.svg',
 	canonical = undefined,
+	showMobileThemeToolbar = true,
 } = Astro.props;
 ---
 
@@ -17,15 +18,43 @@ const {
 	<head>
 		<script is:inline>
 			// Prevent FART effect: set theme before rendering
-			if (localStorage.getItem("theme") === null) {
-				document.documentElement.setAttribute("data-theme", "light");
-			} else {
-				document.documentElement.setAttribute("data-theme", localStorage.getItem("theme"));
-			}
+			(function() {
+				var stored = localStorage.getItem('theme');
+				var theme = stored || 'light';
+				document.documentElement.setAttribute('data-theme', theme);
+			})();
 		</script>
-		<script>
-			import { themeChange } from 'theme-change';
-			themeChange();
+		<script is:inline>
+			// Sync theme radios and persist selection across navigations
+			(function() {
+				function applyTheme(theme) {
+					if (!theme) return;
+					localStorage.setItem('theme', theme);
+					document.documentElement.setAttribute('data-theme', theme);
+					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
+					inputs.forEach(function(input) { input.checked = (input.value === theme); });
+				}
+
+				function initThemeControls() {
+					var current = localStorage.getItem('theme') || 'light';
+					applyTheme(current);
+					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
+					inputs.forEach(function(input) {
+						input.addEventListener('change', function(ev) {
+							var target = ev.target;
+							if (target && target.value) {
+								applyTheme(target.value);
+							}
+						});
+					});
+				}
+
+				if (document.readyState === 'loading') {
+					document.addEventListener('DOMContentLoaded', initThemeControls);
+				} else {
+					initThemeControls();
+				}
+			})();
 		</script>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -38,11 +67,15 @@ const {
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
-		<link rel="stylesheet" href="/styles/global.css" />
-		<link rel="stylesheet" href="/assets/app.css" />
 	</head>
 	<body>
-	
+		<!-- Mobile theme toolbar (hidden on sm and up); can be disabled via prop -->
+		{showMobileThemeToolbar && (
+			<div class="fixed right-2 top-2 z-50 sm:hidden">
+				<Toolbar />
+			</div>
+		)}
+
 		<slot />
 		<Footer />
 		<style>

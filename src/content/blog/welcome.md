@@ -1,7 +1,5 @@
-
 ---
 title: Welcome to my blog
-author: djblackett
 pubDate: 2025-01-01
 description: Kicking off a new space for engineering notes and web performance tips.
 tags:

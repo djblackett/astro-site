@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import Toolbar from '../../components/Toolbar.astro';
 import { siteLinks } from '../../config/siteLinks';
 import { getCollection, type CollectionEntry } from 'astro:content';
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
@@ -19,24 +20,40 @@ const pageSize = 6;
 const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
 const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+// Pre-compute reading time (~200 wpm) for each post
+const readTimes = Object.fromEntries(
+  paginated.map(p => {
+    const words = p.body?.split(/\s+/).filter(Boolean).length ?? 0;
+    const minutes = Math.max(1, Math.round(words / 200));
+    return [p.slug, minutes];
+  })
+);
 ---
 <Layout
   title="Blog | Astro Basics"
   description="Notes on engineering, performance, and developer experience."
   canonical="https://your-site-url.com/blog"
   ogImage="/favicon.svg"
+  showMobileThemeToolbar={false}
 >
-  <main class="site-container site-section">
+  <div class="hidden sm:block fixed right-2 top-2 z-50">
+    <Toolbar />
+  </div>
+  <main class="site-section px-container bg-base-100/90 min-h-[100vh]">
     <div class="breadcrumbs text-sm">
       <ul>
         <li><a href="/">Home</a></li>
         <li>Blog</li>
       </ul>
     </div>
-    <h1 class="text-4xl font-bold">Blog</h1>
-    <p class="mt-2 opacity-80">Notes on engineering, performance, and developer experience.</p>
+    <div class="sm:hidden mb-3">
+      <Toolbar />
+    </div>
+    <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-2">Blog</h1>
+    <p class="text-lg md:text-xl opacity-80 font-medium leading-snug mb-6">Notes on engineering, performance, and developer experience.</p>
 
-    <form class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mt-6 mb-8" method="get">
+  <form class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mt-2 mb-10" method="get">
       <input type="search" name="q" value={q} placeholder="Search posts..." class="input input-bordered w-full sm:max-w-xs" />
       <div class="flex flex-wrap gap-2">
         {allTags.map((t) => (
@@ -57,27 +74,22 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   <button type="submit" class="btn btn-primary w-full sm:w-auto">Search</button>
     </form>
 
-  <div class="mt-8 grid gap-6 sm:grid-cols-2">
-  {paginated.map((p) => {
+    <div class="mt-0 grid gap-8 md:gap-10 sm:grid-cols-2">
+      {paginated.map((p) => {
         const href = `/blog/${p.slug}`;
         return (
-          <a href={href} class="card bg-base-200 hover:shadow-xl transition-all">
-            <div class="card-body">
-              <div class="flex gap-3 items-center mb-2">
-                <div class="avatar placeholder">
-                  <div class="bg-primary text-primary-content rounded-full w-8">
-                    <span class="text-sm font-bold">{p.data.author[0].toUpperCase()}</span>
-                  </div>
-                </div>
-                <a href={`/authors/${p.data.author}`} class="badge badge-outline hover:badge-primary">{p.data.author}</a>
+          <a href={href} class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40 hover:scale-[1.025] hover:shadow-2xl transition-transform duration-150 overflow-hidden group">
+            <div class="p-6 md:p-8">
+              <h2 class="text-2xl font-bold mb-1 group-hover:text-primary transition-colors">{p.data.title}</h2>
+              <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
+                <time datetime={new Date(p.data.pubDate).toISOString()}>{new Date(p.data.pubDate).toLocaleDateString()}</time>
+                <span aria-label="Estimated reading time">• {readTimes[p.slug]} min read</span>
               </div>
-              <h2 class="card-title mb-1">{p.data.title}</h2>
-              <p class="text-sm opacity-60 mb-2">{new Date(p.data.pubDate).toLocaleDateString()}</p>
-              {p.data.description && <p class="opacity-80 mb-2">{p.data.description}</p>}
+              {p.data.description && <p class="opacity-80 mb-3">{p.data.description}</p>}
               {p.data.tags?.length ? (
-                <div class="not-prose mt-2 flex flex-wrap gap-2">
+                <div class="mt-2 flex flex-wrap gap-2 not-prose">
                   {p.data.tags.map((t: string) => (
-                    <span class="badge badge-ghost">{t}</span>
+                    <span class="badge badge-outline badge-md px-3 py-1.5 font-semibold tracking-wide" style="text-transform: none;">{t}</span>
                   ))}
                 </div>
               ) : null}
@@ -88,7 +100,7 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
     </div>
 
     {/* Pagination controls */}
-    <nav class="mt-12 flex justify-center gap-2">
+  <nav class="mt-14 flex justify-center gap-2">
       {Array.from({ length: totalPages }, (_, i) => (
         <a
           href={`?${[q && `q=${encodeURIComponent(q)}`, tag && `tag=${encodeURIComponent(tag)}`, `page=${i + 1}`].filter(Boolean).join('&')}`}
@@ -99,12 +111,12 @@ const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
       ))}
     </nav>
 
-    <div class="mt-12">
-      <div class="card bg-base-200">
-        <div class="card-body">
-          <h2 class="card-title">Want updates?</h2>
-          <p>Subscribe to the RSS feed once it's ready. For now, follow on GitHub or LinkedIn.</p>
-          <div class="card-actions">
+    <div class="mt-16">
+      <div class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40">
+        <div class="p-6 md:p-8">
+          <h2 class="text-2xl font-bold mb-2">Want updates?</h2>
+          <p class="mb-4">Subscribe to the RSS feed once it's ready. For now, follow on GitHub or LinkedIn.</p>
+          <div class="flex gap-3">
             <a href={siteLinks.github} class="btn btn-ghost" target="_blank">GitHub</a>
             <a href={siteLinks.linkedin} class="btn btn-outline" target="_blank">LinkedIn</a>
           </div>

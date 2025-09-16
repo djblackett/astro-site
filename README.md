@@ -44,3 +44,14 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+## 🎨 Theme Persistence
+
+- The site uses DaisyUI themes. Your selected theme is saved in `localStorage` under the key `theme` and applied early on every page to avoid a flash of wrong theme.
+- To reset to default, clear the key in your browser devtools:
+
+```sh
+// in browser console
+localStorage.removeItem('theme')
+location.reload()
+```

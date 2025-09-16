@@ -63,3 +63,234 @@
 .stack-lg > * + * {
   margin-top: var(--space-6);
 }
+
+/* Enhanced blog prose styling (raw CSS; no @apply) */
+.prose {
+  max-width: none;
+  line-height: 1.65;
+  color: oklch(var(--base-content));
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  scroll-margin-top: 6rem;
+  position: relative;
+}
+.prose h1 {
+  font-size: clamp(2.5rem, 6vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.05;
+  background: linear-gradient(
+    90deg,
+    var(--fallback-p, oklch(var(--p))),
+    var(--fallback-s, oklch(var(--s)))
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+}
+.prose h2 {
+  margin-top: 3rem;
+  font-size: 2rem;
+}
+.prose h3 {
+  margin-top: 2.5rem;
+  font-size: 1.5rem;
+}
+.prose h4 {
+  margin-top: 2rem;
+  font-size: 1.25rem;
+}
+
+/* Heading permalinks */
+.prose .heading-anchor {
+  position: absolute;
+  left: -1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  text-decoration: none;
+  color: color-mix(in oklab, oklch(var(--base-content)) 55%, transparent);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  font-size: 0.875em;
+}
+.prose h1 .heading-anchor {
+  left: -1.5rem;
+  font-size: 0.7em;
+}
+.prose h2:hover .heading-anchor,
+.prose h3:hover .heading-anchor,
+.prose h4:hover .heading-anchor,
+.prose h2:focus-within .heading-anchor,
+.prose h3:focus-within .heading-anchor,
+.prose h4:focus-within .heading-anchor {
+  opacity: 1;
+}
+.prose .heading-anchor:hover,
+.prose .heading-anchor:focus {
+  color: oklch(var(--p));
+}
+
+.prose p {
+  margin: 1.25rem 0;
+}
+.prose strong {
+  color: oklch(var(--base-content));
+  font-weight: 600;
+}
+.prose a {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  color: oklch(var(--p));
+  transition: color 0.15s ease, text-decoration-color 0.2s ease;
+}
+.prose a:hover {
+  color: oklch(var(--s));
+  text-decoration-color: oklch(var(--s));
+}
+
+.prose blockquote {
+  border-left: 4px solid oklch(var(--p));
+  padding: 0.75rem 1rem 0.75rem 1.5rem;
+  margin: 2rem 0;
+  background: color-mix(in oklab, oklch(var(--b1)) 94%, transparent);
+  border-radius: 0 0.75rem 0.75rem 0;
+  font-style: italic;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose blockquote {
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, oklch(var(--b2)) 70%, transparent),
+      color-mix(in oklab, oklch(var(--b1)) 85%, transparent)
+    );
+    border-left-color: oklch(var(--s));
+  }
+}
+
+.prose ul > li::marker {
+  color: oklch(var(--s));
+}
+.prose ol > li::marker {
+  color: oklch(var(--p));
+}
+.prose ul,
+.prose ol {
+  margin: 1.5rem 0 1.5rem 1.2rem;
+  padding-left: 1rem;
+}
+.prose li {
+  line-height: 1.5;
+}
+.prose li + li {
+  margin-top: 0.5rem;
+}
+
+.prose pre {
+  margin: 2rem 0;
+  background: color-mix(in oklab, oklch(var(--b3)) 85%, transparent);
+  backdrop-filter: blur(4px);
+  border: 1px solid oklch(var(--b2));
+  box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.25);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+}
+.prose code {
+  font-weight: 500;
+}
+.prose :not(pre) > code {
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.4rem;
+  background: color-mix(in oklab, oklch(var(--b2)) 88%, transparent);
+  border: 1px solid oklch(var(--b3));
+  color: oklch(var(--base-content) / 0.9);
+}
+
+.prose hr {
+  margin: 3rem 0;
+  border-color: oklch(var(--b3));
+}
+
+.prose table {
+  margin: 2rem 0;
+  width: 100%;
+  font-size: 0.9rem;
+  border-collapse: collapse;
+}
+.prose table th {
+  background: oklch(var(--b3));
+  font-weight: 600;
+}
+.prose table th,
+.prose table td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid oklch(var(--b3));
+}
+
+/* Images */
+.prose img {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 18px -6px rgba(0, 0, 0, 0.3);
+  border: 1px solid oklch(var(--b3));
+  display: block;
+  margin: 2.5rem auto;
+}
+
+/* Footnotes */
+.prose sup a {
+  text-decoration: none;
+  font-weight: 400;
+}
+
+/* Article header helpers */
+.post-header {
+  margin-bottom: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.tag-list .tag {
+  border: 1px solid oklch(var(--b3));
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Smooth scroll and ToC active styles */
+html {
+  scroll-behavior: smooth;
+}
+aside.toc a {
+  color: color-mix(in oklab, oklch(var(--base-content)) 85%, transparent);
+  text-decoration: none;
+}
+aside.toc a:hover,
+aside.toc a:focus {
+  color: oklch(var(--p));
+}
+aside.toc a.is-active {
+  color: oklch(var(--p));
+  font-weight: 600;
+}
