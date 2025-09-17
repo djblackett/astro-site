@@ -18,29 +18,70 @@ const resolvedOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${withB
 ---
 
 
-<html lang="en">
+<html lang="en" data-theme="light" data-theme-initializing>
 	<head>
+		<style is:inline>
+			html[data-theme-initializing] body {
+				visibility: hidden;
+			}
+			html[data-theme-initializing] {
+				background-color: #000;
+			}
+		</style>
 		<script is:inline>
 			// Prevent FART effect: set theme before rendering
 			(function() {
-				var stored = localStorage.getItem('theme');
-				var theme = stored || 'light';
-				document.documentElement.setAttribute('data-theme', theme);
+				var root = document.documentElement;
+				var prefersDark = false;
+				try {
+					prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+				} catch (error) {
+					prefersDark = false;
+				}
+				var theme = prefersDark ? 'dark' : 'light';
+				try {
+					var stored = window.localStorage.getItem('theme');
+					if (stored) {
+						theme = stored;
+					}
+				} catch (error) {
+					// Ignore storage access errors
+				}
+				root.setAttribute('data-theme', theme);
+				root.style.setProperty('color-scheme', theme === 'dark' ? 'dark' : 'light');
+				root.removeAttribute('data-theme-initializing');
 			})();
 		</script>
 		<script is:inline>
 			// Sync theme radios and persist selection across navigations
 			(function() {
+				var storageKey = 'theme';
 				function applyTheme(theme) {
 					if (!theme) return;
-					localStorage.setItem('theme', theme);
+					try {
+						window.localStorage.setItem(storageKey, theme);
+					} catch (error) {
+						// Ignore storage write errors
+					}
 					document.documentElement.setAttribute('data-theme', theme);
 					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
 					inputs.forEach(function(input) { input.checked = (input.value === theme); });
 				}
 
 				function initThemeControls() {
-					var current = localStorage.getItem('theme') || 'light';
+					var current = 'light';
+					try {
+						var stored = window.localStorage.getItem(storageKey);
+						if (stored) {
+							current = stored;
+						} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+							current = 'dark';
+						}
+					} catch (error) {
+						if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+							current = 'dark';
+						}
+					}
 					applyTheme(current);
 					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
 					inputs.forEach(function(input) {

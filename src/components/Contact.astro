@@ -84,12 +84,13 @@ const CONTACT_ENDPOINT = import.meta.env.PUBLIC_CONTACT_ENDPOINT || 'https://ast
     const spinner = document.getElementById('spinner');
     const messageEl = document.getElementById('message');
     const counter = document.getElementById('char-counter');
-  // Read endpoint from section data attribute (set server-side)
-  const endpoint = (document.getElementById('contact')?.dataset.endpoint) || 'https://astro-contact-worker.your-domain.workers.dev/api/contact';
+    // Read endpoint from Astro-rendered data attribute so the client script stays environment agnostic.
+    const endpoint = (document.getElementById('contact')?.dataset.endpoint) || 'https://astro-contact-worker.your-domain.workers.dev/api/contact';
 
     // Animation helpers
     function expand() {
       if (!formWrapper.classList.contains('hidden')) return; // already visible
+      // Use a manual height transition so the container can animate from display: none.
       formWrapper.classList.remove('hidden');
       formWrapper.style.height = '0px';
       formWrapper.style.opacity = '0';
@@ -161,6 +162,7 @@ const CONTACT_ENDPOINT = import.meta.env.PUBLIC_CONTACT_ENDPOINT || 'https://ast
         submitBtn.disabled = true;
         spinner.classList.remove('hidden');
         try {
+          // Gather payload + Turnstile token once the user submits.
           const formData = new FormData(form);
           const payload = Object.fromEntries(formData.entries());
           const turnstileToken = (form.querySelector('input[name="cf-turnstile-response"]') || {}).value;
@@ -195,8 +197,7 @@ const CONTACT_ENDPOINT = import.meta.env.PUBLIC_CONTACT_ENDPOINT || 'https://ast
       });
     }
 
-    // Back to top behavior (works whether DOM is ready or not yet)
-    // Back to top via event delegation (works regardless of timing)
+    // Back to top via delegation so future buttons also trigger the smooth scroll.
     document.addEventListener('click', (ev) => {
       const el = ev.target;
       if (!(el instanceof Element)) return;

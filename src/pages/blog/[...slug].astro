@@ -10,6 +10,7 @@ import Toolbar from '../../components/Toolbar.astro';
 
 const { slug } = Astro.params;
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+// Match Astro's catch-all slug format by normalising arrays like ["foo","bar"] -> "foo/bar".
 const s = Array.isArray(slug) ? slug.join('/') : (slug as string);
 const entry = posts.find((p) => p.slug === s);
 if (!entry) return Astro.redirect(withBase('blog'));
@@ -25,6 +26,7 @@ const minutes = Math.max(1, Math.round(words / 200));
 const headingMatches = Array.from(
   rawBody.matchAll(/^#\s+(.+)|^##\s+(.+)|^###\s+(.+)|^####\s+(.+)/gm)
 );
+// Track duplicate slugs so repeated headings get unique anchors (section, section-1, ...).
 const slugCounts = new Map<string, number>();
 const toc = headingMatches
   .map((m, index) => {

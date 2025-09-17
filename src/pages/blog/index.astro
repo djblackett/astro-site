@@ -5,12 +5,14 @@ import { siteLinks } from '../../config/siteLinks';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { withBase } from '../../utils/url';
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
+// Collect the set of unique tags so the filter UI can render deterministic buttons.
 const allTags = Array.from(new Set(posts.flatMap((p) => p.data.tags ?? []))).sort();
 const url = new URL(Astro.url);
 const initialQueryRaw = url.searchParams.get('q') ?? '';
 const initialQueryTrimmed = initialQueryRaw.trim();
 const q = initialQueryTrimmed.toLowerCase();
 const tag = url.searchParams.get('tag') ?? '';
+// Restrict to published entries in reverse chronological order.
 const published = posts
   .filter((p) => !p.data.draft)
   .sort((a, b) => +new Date(b.data.pubDate) - +new Date(a.data.pubDate));
@@ -24,6 +26,7 @@ const readTimes = Object.fromEntries(
   })
 );
 
+// Apply query + tag filters on the server for the initial render.
 const filtered = published.filter((p) => {
   const tags = p.data.tags ?? [];
   const description = p.data.description?.toLowerCase() ?? '';
@@ -34,6 +37,7 @@ const filtered = published.filter((p) => {
   return (titleMatches || descriptionMatches || tagMatchesQuery) && tagMatchesFilter;
 });
 
+// Pre-compute a lightweight payload used by the client-side filter script.
 const postsPayload = published.map((p) => {
   const tags = p.data.tags ?? [];
   const description = p.data.description ?? '';
@@ -173,6 +177,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
         searchText: string;
       };
 
+      // Read the pre-rendered post metadata so filters can run fully client-side.
       const postsDataElement = document.getElementById('blog-posts-data');
       const posts: PostSummary[] = postsDataElement?.textContent
         ? JSON.parse(postsDataElement.textContent)
@@ -181,6 +186,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
 
       const form = document.querySelector<HTMLFormElement>('[data-blog-filters]');
       if (!form || !posts.length) {
+        // Nothing to enhance—keep the server-rendered list.
         return;
       }
 
@@ -200,6 +206,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
       const DEBOUNCE_DELAY = 200;
       let debounceTimer: number | undefined;
 
+      // Escape HTML when rebuilding the list to avoid leaking markup from markdown content.
       const escapeHtml = (value: string) =>
         value
           .replace(/&/g, '&amp;')
@@ -233,6 +240,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
         }
       };
 
+      // Render the filtered list (or the empty-state message) into the grid container.
       const renderPosts = (items: PostSummary[]) => {
         if (!items.length) {
           postsContainer.innerHTML = '<div class="col-span-full rounded-3xl bg-base-200/80 p-8 text-center text-base-content/80">No posts match your current filters.</div>';
@@ -284,6 +292,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
         resultsCount.textContent = formatSummary(count, trimmedQuery);
       };
 
+      // Re-run filtering pipeline based on the current query + active tag.
       const applyFilters = () => {
         const trimmedQuery = query.trim();
         const normalizedQuery = trimmedQuery.toLowerCase();
@@ -299,6 +308,7 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
         updateSummary(filteredPosts.length, trimmedQuery);
       };
 
+      // Debounce input typing so we avoid re-rendering on every keystroke.
       const scheduleFilterUpdate = () => {
         if (debounceTimer !== undefined) {
           window.clearTimeout(debounceTimer);

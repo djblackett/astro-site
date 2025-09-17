@@ -1,6 +1,7 @@
 ---
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { withBase } from '../utils/url';
+// Load non-draft entries so we can showcase the three most recent posts on the homepage.
 const all = (await getCollection('blog')) as CollectionEntry<'blog'>[];
 const posts = all
   .filter((p) => !p.data.draft)
