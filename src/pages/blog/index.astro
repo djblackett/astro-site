@@ -3,37 +3,72 @@ import Layout from '../../layouts/Layout.astro';
 import Toolbar from '../../components/Toolbar.astro';
 import { siteLinks } from '../../config/siteLinks';
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { withBase } from '../../utils/url';
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
 const allTags = Array.from(new Set(posts.flatMap((p) => p.data.tags ?? []))).sort();
 const url = new URL(Astro.url);
-const q = url.searchParams.get('q')?.toLowerCase() ?? '';
+const initialQueryRaw = url.searchParams.get('q') ?? '';
+const initialQueryTrimmed = initialQueryRaw.trim();
+const q = initialQueryTrimmed.toLowerCase();
 const tag = url.searchParams.get('tag') ?? '';
-const filtered = posts
+const published = posts
   .filter((p) => !p.data.draft)
-  .filter((p) =>
-    (!q || p.data.title.toLowerCase().includes(q) || p.data.description?.toLowerCase().includes(q)) &&
-    (!tag || p.data.tags?.includes(tag))
-  )
   .sort((a, b) => +new Date(b.data.pubDate) - +new Date(a.data.pubDate));
-
-const pageSize = 6;
-const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
-const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
 // Pre-compute reading time (~200 wpm) for each post
 const readTimes = Object.fromEntries(
-  paginated.map(p => {
+  published.map((p) => {
     const words = p.body?.split(/\s+/).filter(Boolean).length ?? 0;
     const minutes = Math.max(1, Math.round(words / 200));
     return [p.slug, minutes];
   })
 );
+
+const filtered = published.filter((p) => {
+  const tags = p.data.tags ?? [];
+  const description = p.data.description?.toLowerCase() ?? '';
+  const titleMatches = !q || p.data.title.toLowerCase().includes(q);
+  const descriptionMatches = !q || description.includes(q);
+  const tagMatchesQuery = !q || tags.some((t) => t.toLowerCase().includes(q));
+  const tagMatchesFilter = !tag || tags.includes(tag);
+  return (titleMatches || descriptionMatches || tagMatchesQuery) && tagMatchesFilter;
+});
+
+const postsPayload = published.map((p) => {
+  const tags = p.data.tags ?? [];
+  const description = p.data.description ?? '';
+  return {
+    slug: p.slug,
+    title: p.data.title,
+    description,
+    tags,
+    href: withBase(`blog/${p.slug}`),
+    pubDateISO: new Date(p.data.pubDate).toISOString(),
+    pubDateDisplay: new Date(p.data.pubDate).toLocaleDateString(),
+    readingTime: readTimes[p.slug],
+    searchText: [p.data.title, description, tags.join(' ')].join(' ').toLowerCase(),
+  };
+});
+
+const totalPublished = published.length;
+const filterSummaryParts: string[] = [];
+if (initialQueryTrimmed) {
+  filterSummaryParts.push(`search "${initialQueryTrimmed}"`);
+}
+if (tag) {
+  filterSummaryParts.push(`tag "${tag}"`);
+}
+const initialResultsDescription = !initialQueryTrimmed && !tag
+  ? `Showing all ${totalPublished} posts`
+  : `Showing ${filtered.length} of ${totalPublished} posts${filterSummaryParts.length ? ` for ${filterSummaryParts.join(' and ')}` : ''}`;
+
+const siteOrigin = (Astro.site ?? Astro.url).origin;
+const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
 ---
 <Layout
   title="Blog | Astro Basics"
   description="Notes on engineering, performance, and developer experience."
-  canonical="https://your-site-url.com/blog"
+  canonical={canonicalUrl}
   ogImage="/favicon.svg"
   showMobileThemeToolbar={false}
 >
@@ -43,7 +78,7 @@ const readTimes = Object.fromEntries(
   <main class="site-section px-container bg-base-100/90 min-h-[100vh]">
     <div class="breadcrumbs text-sm">
       <ul>
-        <li><a href="/">Home</a></li>
+        <li><a href={withBase('/')}>Home</a></li>
         <li>Blog</li>
       </ul>
     </div>
@@ -53,8 +88,16 @@ const readTimes = Object.fromEntries(
     <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-2">Blog</h1>
     <p class="text-lg md:text-xl opacity-80 font-medium leading-snug mb-6">Notes on engineering, performance, and developer experience.</p>
 
-  <form class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mt-2 mb-10" method="get">
-      <input type="search" name="q" value={q} placeholder="Search posts..." class="input input-bordered w-full sm:max-w-xs" />
+  <form class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mt-2 mb-10" method="get" data-blog-filters>
+      <input
+        type="search"
+        name="q"
+        value={initialQueryRaw}
+        placeholder="Search posts..."
+        class="input input-bordered w-full sm:max-w-xs"
+        data-search-input
+        aria-label="Search blog posts"
+      />
       <div class="flex flex-wrap gap-2">
         {allTags.map((t) => (
           <button
@@ -63,53 +106,258 @@ const readTimes = Object.fromEntries(
             value={t}
             class={`badge badge-outline cursor-pointer ${tag === t ? 'badge-primary' : ''}`}
             aria-pressed={tag === t}
+            data-tag-button
           >
             {t}
           </button>
         ))}
-        {tag && (
-          <button type="submit" name="tag" value="" class="badge badge-error">Clear tag</button>
-        )}
+        <button
+          type="submit"
+          name="tag"
+          value=""
+          class={`badge badge-error ${tag ? '' : 'hidden'}`}
+          data-clear-tag
+        >
+          Clear tag
+        </button>
       </div>
-  <button type="submit" class="btn btn-primary w-full sm:w-auto">Search</button>
+      <button type="submit" class="btn btn-primary w-full sm:w-auto" data-search-button>Search</button>
     </form>
 
-    <div class="mt-0 grid gap-8 md:gap-10 sm:grid-cols-2">
-      {paginated.map((p) => {
-        const href = `/blog/${p.slug}`;
-        return (
-          <a href={href} class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40 hover:scale-[1.025] hover:shadow-2xl transition-transform duration-150 overflow-hidden group">
-            <div class="p-6 md:p-8">
-              <h2 class="text-2xl font-bold mb-1 group-hover:text-primary transition-colors">{p.data.title}</h2>
-              <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
-                <time datetime={new Date(p.data.pubDate).toISOString()}>{new Date(p.data.pubDate).toLocaleDateString()}</time>
-                <span aria-label="Estimated reading time">• {readTimes[p.slug]} min read</span>
-              </div>
-              {p.data.description && <p class="opacity-80 mb-3">{p.data.description}</p>}
-              {p.data.tags?.length ? (
-                <div class="mt-2 flex flex-wrap gap-2 not-prose">
-                  {p.data.tags.map((t: string) => (
-                    <span class="badge badge-outline badge-md px-3 py-1.5 font-semibold tracking-wide" style="text-transform: none;">{t}</span>
-                  ))}
+    <p class="text-sm opacity-80 mb-6" data-results-count>{initialResultsDescription}</p>
+
+    <div class="mt-0 grid gap-8 md:gap-10 sm:grid-cols-2" data-posts-container aria-live="polite">
+      {filtered.length ? (
+        filtered.map((p) => {
+          const href = withBase(`blog/${p.slug}`);
+          return (
+            <a href={href} class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40 hover:scale-[1.025] hover:shadow-2xl transition-transform duration-150 overflow-hidden group">
+              <div class="p-6 md:p-8">
+                <h2 class="text-2xl font-bold mb-1 group-hover:text-primary transition-colors">{p.data.title}</h2>
+                <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
+                  <time datetime={new Date(p.data.pubDate).toISOString()}>{new Date(p.data.pubDate).toLocaleDateString()}</time>
+                  <span aria-label="Estimated reading time">• {readTimes[p.slug]} min read</span>
                 </div>
-              ) : null}
-            </div>
-          </a>
-        );
-      })}
+                {p.data.description && <p class="opacity-80 mb-3">{p.data.description}</p>}
+                {p.data.tags?.length ? (
+                  <div class="mt-2 flex flex-wrap gap-2 not-prose">
+                    {p.data.tags.map((tagName: string) => (
+                      <span class="badge badge-outline badge-md px-3 py-1.5 font-semibold tracking-wide" style="text-transform: none;">{tagName}</span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </a>
+          );
+        })
+      ) : (
+        <div class="col-span-full rounded-3xl bg-base-200/80 p-8 text-center text-base-content/80">
+          No posts match your current filters.
+        </div>
+      )}
     </div>
 
-    {/* Pagination controls */}
-  <nav class="mt-14 flex justify-center gap-2">
-      {Array.from({ length: totalPages }, (_, i) => (
-        <a
-          href={`?${[q && `q=${encodeURIComponent(q)}`, tag && `tag=${encodeURIComponent(tag)}`, `page=${i + 1}`].filter(Boolean).join('&')}`}
-          class={`btn btn-sm ${page === i + 1 ? 'btn-primary' : 'btn-ghost'}`}
-        >
-          {i + 1}
-        </a>
-      ))}
-    </nav>
+    <script type="application/json" id="blog-posts-data">
+      {JSON.stringify(postsPayload)}
+    </script>
+    <script is:inline>
+      type PostSummary = {
+        slug: string;
+        title: string;
+        description: string;
+        tags: string[];
+        href: string;
+        pubDateISO: string;
+        pubDateDisplay: string;
+        readingTime: number;
+        searchText: string;
+      };
+
+      const postsDataElement = document.getElementById('blog-posts-data');
+      const posts: PostSummary[] = postsDataElement?.textContent
+        ? JSON.parse(postsDataElement.textContent)
+        : [];
+      postsDataElement?.remove();
+
+      const form = document.querySelector<HTMLFormElement>('[data-blog-filters]');
+      if (!form || !posts.length) {
+        return;
+      }
+
+      const searchInput = form.querySelector<HTMLInputElement>('[data-search-input]');
+      const tagButtons = Array.from(form.querySelectorAll<HTMLButtonElement>('[data-tag-button]'));
+      const clearTagButton = form.querySelector<HTMLButtonElement>('[data-clear-tag]');
+      const postsContainer = document.querySelector<HTMLDivElement>('[data-posts-container]');
+      const resultsCount = document.querySelector<HTMLElement>('[data-results-count]');
+
+      if (!postsContainer) {
+        return;
+      }
+
+      let activeTag = {JSON.stringify(tag)};
+      let query = {JSON.stringify(initialQueryRaw)};
+      const totalPosts = posts.length;
+      const DEBOUNCE_DELAY = 200;
+      let debounceTimer: number | undefined;
+
+      const escapeHtml = (value: string) =>
+        value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+
+      const formatSummary = (count: number, trimmedQuery: string): string => {
+        const baseMessage = !trimmedQuery && !activeTag
+          ? `Showing all ${totalPosts} posts`
+          : `Showing ${count} of ${totalPosts} posts`;
+        const details: string[] = [];
+        if (trimmedQuery) {
+          details.push(`search "${trimmedQuery}"`);
+        }
+        if (activeTag) {
+          details.push(`tag "${activeTag}"`);
+        }
+        return details.length ? `${baseMessage} for ${details.join(' and ')}` : baseMessage;
+      };
+
+      const updateTagStates = () => {
+        tagButtons.forEach((button) => {
+          const isActive = button.value === activeTag;
+          button.classList.toggle('badge-primary', isActive);
+          button.setAttribute('aria-pressed', String(isActive));
+        });
+        if (clearTagButton) {
+          clearTagButton.classList.toggle('hidden', !activeTag);
+        }
+      };
+
+      const renderPosts = (items: PostSummary[]) => {
+        if (!items.length) {
+          postsContainer.innerHTML = '<div class="col-span-full rounded-3xl bg-base-200/80 p-8 text-center text-base-content/80">No posts match your current filters.</div>';
+          return;
+        }
+
+        postsContainer.innerHTML = items
+          .map((post) => `
+            <a href="${post.href}" class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40 hover:scale-[1.025] hover:shadow-2xl transition-transform duration-150 overflow-hidden group">
+              <div class="p-6 md:p-8">
+                <h2 class="text-2xl font-bold mb-1 group-hover:text-primary transition-colors">${escapeHtml(post.title)}</h2>
+                <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
+                  <time datetime="${post.pubDateISO}">${escapeHtml(post.pubDateDisplay)}</time>
+                  <span aria-label="Estimated reading time">• ${post.readingTime} min read</span>
+                </div>
+                ${post.description
+                  ? `<p class="opacity-80 mb-3">${escapeHtml(post.description)}</p>`
+                  : ''}
+                ${post.tags.length
+                  ? `<div class="mt-2 flex flex-wrap gap-2 not-prose">${post.tags
+                      .map((t) => `<span class="badge badge-outline badge-md px-3 py-1.5 font-semibold tracking-wide" style="text-transform: none;">${escapeHtml(t)}</span>`)
+                      .join('')}</div>`
+                  : ''}
+              </div>
+            </a>
+          `)
+          .join('');
+      };
+
+      const updateUrl = (trimmedQuery: string) => {
+        const params = new URLSearchParams(window.location.search);
+        if (trimmedQuery) {
+          params.set('q', trimmedQuery);
+        } else {
+          params.delete('q');
+        }
+        if (activeTag) {
+          params.set('tag', activeTag);
+        } else {
+          params.delete('tag');
+        }
+        const search = params.toString();
+        const newUrl = `${window.location.pathname}${search ? `?${search}` : ''}`;
+        window.history.replaceState({}, '', newUrl);
+      };
+
+      const updateSummary = (count: number, trimmedQuery: string) => {
+        if (!resultsCount) return;
+        resultsCount.textContent = formatSummary(count, trimmedQuery);
+      };
+
+      const applyFilters = () => {
+        const trimmedQuery = query.trim();
+        const normalizedQuery = trimmedQuery.toLowerCase();
+        const filteredPosts = posts.filter((post) => {
+          const matchesQuery = !normalizedQuery || post.searchText.includes(normalizedQuery);
+          const matchesTag = !activeTag || post.tags.includes(activeTag);
+          return matchesQuery && matchesTag;
+        });
+
+        renderPosts(filteredPosts);
+        updateTagStates();
+        updateUrl(trimmedQuery);
+        updateSummary(filteredPosts.length, trimmedQuery);
+      };
+
+      const scheduleFilterUpdate = () => {
+        if (debounceTimer !== undefined) {
+          window.clearTimeout(debounceTimer);
+        }
+        debounceTimer = window.setTimeout(() => {
+          applyFilters();
+        }, DEBOUNCE_DELAY);
+      };
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        query = (searchInput?.value ?? '').trim();
+        if (debounceTimer !== undefined) {
+          window.clearTimeout(debounceTimer);
+        }
+        if (searchInput) {
+          searchInput.value = query;
+        }
+        applyFilters();
+      });
+
+      searchInput?.addEventListener('input', () => {
+        query = searchInput.value ?? '';
+        scheduleFilterUpdate();
+      });
+
+      searchInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && searchInput.value) {
+          event.preventDefault();
+          searchInput.value = '';
+          query = '';
+          scheduleFilterUpdate();
+        }
+      });
+
+      tagButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          const newTag = button.value;
+          activeTag = activeTag === newTag ? '' : newTag;
+          if (debounceTimer !== undefined) {
+            window.clearTimeout(debounceTimer);
+          }
+          applyFilters();
+        });
+      });
+
+      clearTagButton?.addEventListener('click', (event) => {
+        event.preventDefault();
+        activeTag = '';
+        if (debounceTimer !== undefined) {
+          window.clearTimeout(debounceTimer);
+        }
+        applyFilters();
+      });
+
+      // Initialize state on load
+      applyFilters();
+    </script>
 
     <div class="mt-16">
       <div class="rounded-3xl shadow-xl bg-base-200/90 ring-1 ring-base-300/40">
@@ -117,8 +365,8 @@ const readTimes = Object.fromEntries(
           <h2 class="text-2xl font-bold mb-2">Want updates?</h2>
           <p class="mb-4">Subscribe to the RSS feed once it's ready. For now, follow on GitHub or LinkedIn.</p>
           <div class="flex gap-3">
-            <a href={siteLinks.github} class="btn btn-ghost" target="_blank">GitHub</a>
-            <a href={siteLinks.linkedin} class="btn btn-outline" target="_blank">LinkedIn</a>
+            <a href={siteLinks.github} class="btn btn-ghost" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href={siteLinks.linkedin} class="btn btn-outline" target="_blank" rel="noopener noreferrer">LinkedIn</a>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 ---
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { withBase } from '../../utils/url';
 export async function getStaticPaths() {
   const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
   return posts.map((p) => ({ params: { slug: p.slug } }));
@@ -11,10 +12,12 @@ const { slug } = Astro.params;
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
 const s = Array.isArray(slug) ? slug.join('/') : (slug as string);
 const entry = posts.find((p) => p.slug === s);
-if (!entry) return Astro.redirect('/blog');
+if (!entry) return Astro.redirect(withBase('blog'));
 const { Content } = await entry.render();
 const { data } = entry;
 const rawBody = entry.body ?? '';
+const siteOrigin = (Astro.site ?? Astro.url).origin;
+const articleUrl = `${siteOrigin}${withBase(`blog/${entry.slug}`)}`;
 // Estimate reading time (~200 wpm)
 const words = rawBody.split(/\s+/).filter(Boolean).length;
 const minutes = Math.max(1, Math.round(words / 200));
@@ -57,7 +60,7 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
 <Layout
   title={data.title}
   description={data.description ?? ''}
-  canonical={`https://your-site-url.com/blog/${entry.slug}`}
+  canonical={articleUrl}
   ogImage={'/favicon.svg'}
   showMobileThemeToolbar={false}
 >
@@ -68,8 +71,8 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
     <div class="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_minmax(0,720px)_260px] lg:gap-10">
       <div class="breadcrumbs text-sm mb-8 lg:col-span-3">
         <ul>
-          <li><a href="/">Home</a></li>
-          <li><a href="/blog">Blog</a></li>
+          <li><a href={withBase('/')}>Home</a></li>
+          <li><a href={withBase('blog')}>Blog</a></li>
           <li>{data.title}</li>
         </ul>
       </div>
@@ -128,19 +131,19 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
             <div class="flex flex-col gap-6">
               <div class="flex flex-wrap gap-3 items-center">
                 <span class="text-sm font-medium opacity-80">Share:</span>
-                <button class="btn btn-xs btn-outline" id="copy-link" data-url={`https://your-site-url.com/blog/${entry.slug}`}>Copy Link</button>
-                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent('https://your-site-url.com/blog/' + entry.slug)}`}>Twitter</a>
-                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://your-site-url.com/blog/' + entry.slug)}`}>LinkedIn</a>
+                <button class="btn btn-xs btn-outline" id="copy-link" data-url={articleUrl}>Copy Link</button>
+                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener noreferrer" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(data.title)}&url=${encodeURIComponent(articleUrl)}`}>Twitter</a>
+                <a class="btn btn-xs btn-outline" target="_blank" rel="noopener noreferrer" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(articleUrl)}`}>LinkedIn</a>
               </div>
               <div class="grid gap-4 md:grid-cols-2">
                 {previous && (
-                  <a href={`/blog/${previous.slug}`} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition">
+                  <a href={withBase(`blog/${previous.slug}`)} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition">
                     <div class="text-xs opacity-70 mb-1">Previous</div>
                     <div class="font-medium group-hover:text-primary line-clamp-2">{previous.data.title}</div>
                   </a>
                 )}
                 {next && (
-                  <a href={`/blog/${next.slug}`} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition md:text-right">
+                  <a href={withBase(`blog/${next.slug}`)} class="group p-4 rounded-lg border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition md:text-right">
                     <div class="text-xs opacity-70 mb-1">Next</div>
                     <div class="font-medium group-hover:text-primary line-clamp-2">{next.data.title}</div>
                   </a>
@@ -148,12 +151,10 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
               </div>
               <div class="flex justify-between items-center mt-2">
                 <div class="text-sm opacity-70">Thanks for reading.</div>
-                <a href="/blog" class="btn btn-sm btn-primary">← All posts</a>
+                <a href={withBase('blog')} class="btn btn-sm btn-primary">← All posts</a>
               </div>
             </div>
           </section>
-          
-          <footer />
         </div>
       </article>
       {toc.length >= 1 && (
@@ -205,7 +206,7 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
             }
 
             // Helpers for slug/ToC management
-            const slugify = (value) =>
+            const slugify = (value: string | undefined | null): string =>
               (value || '')
                 .toLowerCase()
                 .replace(/[^a-z0-9\s-]/g, '')
@@ -214,13 +215,14 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
 
             const contentEl = document.getElementById('post-content');
             const headings = contentEl
-              ? Array.from(contentEl.querySelectorAll('h1, h2, h3, h4'))
+              ? Array.from(contentEl.querySelectorAll<HTMLHeadingElement>('h1, h2, h3, h4'))
               : [];
 
-            let tocData = [];
+            type TocItem = { level: number; text: string; slugId: string };
+            let tocData: TocItem[] = [];
             if (contentEl?.dataset.toc) {
               try {
-                tocData = JSON.parse(contentEl.dataset.toc);
+                tocData = JSON.parse(contentEl.dataset.toc) as TocItem[];
               } catch (error) {
                 console.warn('Unable to parse ToC data', error);
               }
@@ -238,18 +240,18 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
               });
             }
 
-            const applyAnchors = (anchors) => {
+            const applyAnchors = (anchors: HTMLAnchorElement[]) => {
               anchors.forEach((anchor, index) => {
                 const entry = tocData[index];
                 const heading = headings[index];
                 if (!anchor || !entry || !heading || !heading.id) return;
                 anchor.setAttribute('href', `#${heading.id}`);
-                anchor.dataset.slug = heading.id;
+                (anchor as HTMLAnchorElement).dataset.slug = heading.id;
               });
             };
 
-            applyAnchors(Array.from(document.querySelectorAll('aside.toc a')));
-            applyAnchors(Array.from(document.querySelectorAll('details.dropdown ul a')));
+            applyAnchors(Array.from(document.querySelectorAll<HTMLAnchorElement>('aside.toc a')));
+            applyAnchors(Array.from(document.querySelectorAll<HTMLAnchorElement>('details.dropdown ul a')));
 
             headings.forEach((heading, index) => {
               if (!heading.id) {
@@ -265,12 +267,13 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
             });
 
             const allTocAnchors = Array.from(
-              document.querySelectorAll('aside.toc a[data-slug], details.dropdown ul a[data-slug]')
+              document.querySelectorAll<HTMLAnchorElement>('aside.toc a[data-slug], details.dropdown ul a[data-slug]')
             );
-            const setActive = (id) => {
+            const setActive = (id: string) => {
               if (!id) return;
               allTocAnchors.forEach((anchor) => {
-                anchor.classList.toggle('is-active', anchor.dataset.slug === id);
+                const datasetSlug = (anchor as HTMLAnchorElement).dataset.slug;
+                anchor.classList.toggle('is-active', datasetSlug === id);
               });
             };
 

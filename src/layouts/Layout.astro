@@ -3,6 +3,7 @@ import "../styles/global.css";
 import "../assets/app.css";
 import Toolbar from "../components/Toolbar.astro";
 import Footer from "../components/Footer.astro";
+import { withBase } from "../utils/url";
 
 const {
 	title = 'Dave Andrea - Software Engineer',
@@ -11,6 +12,9 @@ const {
 	canonical = undefined,
 	showMobileThemeToolbar = true,
 } = Astro.props;
+
+const origin = (Astro.site ?? Astro.url).origin;
+const resolvedOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${withBase(ogImage)}`;
 ---
 
 
@@ -62,11 +66,11 @@ const {
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical ?? Astro.url?.href ?? '/'} />
-		<meta property="og:image" content={ogImage} />
+		<meta property="og:image" content={resolvedOgImage} />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
-		<meta name="twitter:image" content={ogImage} />
+		<meta name="twitter:image" content={resolvedOgImage} />
 	</head>
 	<body>
 		<!-- Mobile theme toolbar (hidden on sm and up); can be disabled via prop -->

@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Toolbar from '../../components/Toolbar.astro';
+import { withBase } from '../../utils/url';
 ---
 
 <Layout showMobileThemeToolbar={false}>
@@ -13,8 +14,8 @@ import Toolbar from '../../components/Toolbar.astro';
     </div>
     <div class="breadcrumbs text-sm not-prose">
       <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/blog">Blog</a></li>
+        <li><a href={withBase('/')}>Home</a></li>
+        <li><a href={withBase('blog')}>Blog</a></li>
         <li>Welcome</li>
       </ul>
     </div>
