@@ -14,11 +14,10 @@ const normalizeBase = (value) => {
 };
 const inferredBase = repoName && !isUserOrgPage ? `/${repoName}/` : "/";
 const base = normalizeBase(process.env.ASTRO_BASE ?? inferredBase);
-const site = process.env.ASTRO_SITE ?? (
-  githubOwner
-    ? `https://${githubOwner}.github.io${isUserOrgPage ? "/" : repoName ? `/${repoName}/` : "/"}`
-    : undefined
-);
+const defaultSite = githubOwner
+  ? `https://${githubOwner}.github.io${isUserOrgPage ? "/" : repoName ? `/${repoName}/` : "/"}`
+  : "http://localhost:4321/";
+const site = process.env.ASTRO_SITE ?? defaultSite;
 
 // https://astro.build/config
 export default defineConfig({

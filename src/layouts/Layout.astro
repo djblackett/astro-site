@@ -10,7 +10,6 @@ const {
 	description = 'A modern Astro site with a blog and more.',
 	ogImage = '/favicon.svg',
 	canonical = undefined,
-	showMobileThemeToolbar = true,
 } = Astro.props;
 
 const origin = (Astro.site ?? Astro.url).origin;
@@ -53,49 +52,72 @@ const resolvedOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${withB
 			})();
 		</script>
 		<script is:inline>
-			// Sync theme radios and persist selection across navigations
+			// Sync theme radios and persist selection across navigations with minimal listeners
 			(function() {
 				var storageKey = 'theme';
-				function applyTheme(theme) {
-					if (!theme) return;
-					try {
-						window.localStorage.setItem(storageKey, theme);
-					} catch (error) {
-						// Ignore storage write errors
-					}
-					document.documentElement.setAttribute('data-theme', theme);
-					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
-					inputs.forEach(function(input) { input.checked = (input.value === theme); });
-				}
+				var radioSelector = 'input.theme-controller[name="theme-dropdown"]';
+				var root = document.documentElement;
+				var currentTheme = root.getAttribute('data-theme') || 'light';
 
-				function initThemeControls() {
-					var current = 'light';
-					try {
-						var stored = window.localStorage.getItem(storageKey);
-						if (stored) {
-							current = stored;
-						} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-							current = 'dark';
-						}
-					} catch (error) {
-						if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-							current = 'dark';
-						}
-					}
-					applyTheme(current);
-					var inputs = document.querySelectorAll('input.theme-controller[name="theme-dropdown"]');
+				function syncRadios(theme) {
+					var inputs = document.querySelectorAll(radioSelector);
 					inputs.forEach(function(input) {
-						input.addEventListener('change', function(ev) {
-							var target = ev.target;
-							if (target && target.value) {
-								applyTheme(target.value);
-							}
-						});
+						input.checked = (input.value === theme);
 					});
 				}
 
+				function setTheme(theme, options) {
+					if (!theme || theme === currentTheme) return;
+					if (!options || !options.skipStore) {
+						try {
+							window.localStorage.setItem(storageKey, theme);
+						} catch (error) {
+							// Storage may be unavailable; ignore.
+						}
+					}
+					currentTheme = theme;
+					root.setAttribute('data-theme', theme);
+					root.style.setProperty('color-scheme', theme === 'dark' ? 'dark' : 'light');
+					if (!options || !options.skipSync) {
+						syncRadios(theme);
+					}
+				}
+
+				function resolvePreferredTheme() {
+					try {
+						var stored = window.localStorage.getItem(storageKey);
+						if (stored) return stored;
+					} catch (error) {
+						// Ignore storage read issues.
+					}
+					if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+						return 'dark';
+					}
+					return 'light';
+				}
+
+				function handleChange(event) {
+					var target = event.target;
+					if (!(target instanceof HTMLInputElement)) return;
+					if (!target.matches(radioSelector) || !target.value) return;
+					setTheme(target.value);
+				}
+
+				function handleStorage(event) {
+					if (event.key !== storageKey || !event.newValue) return;
+					setTheme(event.newValue, { skipStore: true });
+				}
+
+				function initThemeControls() {
+					var preferred = resolvePreferredTheme();
+					setTheme(preferred, { skipStore: true, skipSync: true });
+					syncRadios(preferred);
+					document.addEventListener('change', handleChange, { passive: true });
+					window.addEventListener('storage', handleStorage);
+				}
+
 				if (document.readyState === 'loading') {
-					document.addEventListener('DOMContentLoaded', initThemeControls);
+					document.addEventListener('DOMContentLoaded', initThemeControls, { once: true });
 				} else {
 					initThemeControls();
 				}
@@ -113,16 +135,36 @@ const resolvedOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${withB
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={resolvedOgImage} />
 	</head>
-	<body>
-		<!-- Mobile theme toolbar (hidden on sm and up); can be disabled via prop -->
-		{showMobileThemeToolbar && (
-			<div class="fixed right-2 top-2 z-50 sm:hidden">
-				<Toolbar />
+	<body class="min-h-screen flex flex-col">
+		<header class="sticky top-0 z-40 border-b border-base-300/60 bg-base-100/80 backdrop-blur supports-[backdrop-filter]:bg-base-100/60">
+			<div class="site-container flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="flex items-center justify-between gap-4">
+					<a href={withBase('')} class="font-semibold tracking-tight text-lg text-base-content">
+						Dave Andrea
+					</a>
+					<div class="sm:hidden">
+						<Toolbar />
+					</div>
+				</div>
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+					<nav class="flex flex-wrap items-center justify-center gap-4 text-sm font-medium text-base-content opacity-80 sm:justify-end">
+						<a class="hover:text-base-content hover:opacity-100 transition" href={withBase('#about')}>About</a>
+						<a class="hover:text-base-content hover:opacity-100 transition" href={withBase('blog')}>Blog</a>
+						<a class="hover:text-base-content hover:opacity-100 transition" href={withBase('#contact')}>Contact</a>
+					</nav>
+					<div class="hidden sm:block">
+						<Toolbar />
+					</div>
+				</div>
 			</div>
-		)}
+		</header>
 
-		<slot />
-		<Footer />
+		<div class="flex flex-col flex-1">
+			<div class="flex-1 flex flex-col">
+				<slot />
+			</div>
+			<Footer />
+		</div>
 		<style>
 			html,
 			body {

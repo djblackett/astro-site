@@ -6,7 +6,6 @@ export async function getStaticPaths() {
   return posts.map((p) => ({ params: { slug: p.slug } }));
 }
 import Layout from '../../layouts/Layout.astro';
-import Toolbar from '../../components/Toolbar.astro';
 
 const { slug } = Astro.params;
 const posts = (await getCollection('blog')) as CollectionEntry<'blog'>[];
@@ -57,6 +56,23 @@ const sorted = posts
 const idx = sorted.findIndex(p => p.slug === entry.slug);
 const previous = idx > 0 ? sorted[idx - 1] : null;
 const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+// Surface up to three related posts that share tags with the current article.
+const currentTags = new Set((data.tags ?? []).map((tag) => tag.toLowerCase()));
+const related = currentTags.size
+  ? posts
+      .filter((p) => p.slug !== entry.slug && !p.data.draft)
+      .map((p) => {
+        const tags = (p.data.tags ?? []).map((tag) => tag.toLowerCase());
+        const matchCount = tags.filter((tag) => currentTags.has(tag)).length;
+        return { post: p, matchCount };
+      })
+      .filter(({ matchCount }) => matchCount > 0)
+      .sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+        return +new Date(b.post.data.pubDate) - +new Date(a.post.data.pubDate);
+      })
+      .slice(0, 3)
+  : [];
 ---
 
 <Layout
@@ -64,11 +80,7 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
   description={data.description ?? ''}
   canonical={articleUrl}
   ogImage={'/favicon.svg'}
-  showMobileThemeToolbar={false}
 >
-  <div class="hidden sm:block fixed right-2 top-2 z-50">
-    <Toolbar />
-  </div>
   <div class="site-section px-container bg-base-100/90 min-h-[100vh]">
     <div class="mx-auto max-w-6xl lg:grid lg:grid-cols-[1fr_minmax(0,720px)_260px] lg:gap-10">
       <div class="breadcrumbs text-sm mb-8 lg:col-span-3">
@@ -81,9 +93,6 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
       <article class="rounded-3xl shadow-2xl bg-base-200/90 ring-1 ring-base-300/40 overflow-hidden lg:col-start-2">
         <div class="p-0 md:p-0">
           <header class="not-prose px-6 pt-8 pb-4 md:px-12 md:pt-12 md:pb-6 border-b border-base-300/40">
-            <div class="sm:hidden mb-3">
-              <Toolbar />
-            </div>
             <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-2 text-balance">{data.title}</h1>
             {data.description && <p class="text-lg md:text-xl opacity-80 font-medium leading-snug mb-3 max-w-prose">{data.description}</p>}
             <div class="flex flex-wrap gap-4 items-center text-sm opacity-80 mb-2">
@@ -151,6 +160,28 @@ const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
                   </a>
                 )}
               </div>
+              {related.length ? (
+                <div class="mt-2">
+                  <h2 class="text-sm font-semibold uppercase tracking-wide opacity-70 mb-3">Related reading</h2>
+                  <div class="grid gap-3 md:grid-cols-3">
+                    {related.map(({ post }) => (
+                      <a href={withBase(`blog/${post.slug}`)} class="group block rounded-xl border border-base-300/60 bg-base-300/30 hover:bg-base-300/60 transition p-4">
+                        <div class="text-xs opacity-70 mb-1">
+                          {new Date(post.data.pubDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </div>
+                        <div class="font-medium group-hover:text-primary line-clamp-2 mb-2">{post.data.title}</div>
+                        {post.data.tags?.length ? (
+                          <div class="flex flex-wrap gap-2 text-xs opacity-70">
+                            {post.data.tags.slice(0, 3).map((tag) => (
+                              <span class="badge badge-outline badge-xs px-2 py-1" style="text-transform: none;">{tag}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div class="flex justify-between items-center mt-2">
                 <div class="text-sm opacity-70">Thanks for reading.</div>
                 <a href={withBase('blog')} class="btn btn-sm btn-primary">← All posts</a>

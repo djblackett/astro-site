@@ -1,6 +1,5 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Toolbar from '../../components/Toolbar.astro';
 import { siteLinks } from '../../config/siteLinks';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { withBase } from '../../utils/url';
@@ -74,20 +73,13 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
   description="Notes on engineering, performance, and developer experience."
   canonical={canonicalUrl}
   ogImage="/favicon.svg"
-  showMobileThemeToolbar={false}
 >
-  <div class="hidden sm:block fixed right-2 top-2 z-50">
-    <Toolbar />
-  </div>
   <main class="site-section px-container bg-base-100/90 min-h-[100vh]">
     <div class="breadcrumbs text-sm">
       <ul>
         <li><a href={withBase('/')}>Home</a></li>
         <li>Blog</li>
       </ul>
-    </div>
-    <div class="sm:hidden mb-3">
-      <Toolbar />
     </div>
     <h1 class="text-4xl md:text-5xl font-extrabold leading-tight mb-2">Blog</h1>
     <p class="text-lg md:text-xl opacity-80 font-medium leading-snug mb-6">Notes on engineering, performance, and developer experience.</p>

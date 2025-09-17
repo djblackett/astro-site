@@ -1,10 +1,11 @@
 ---
+const techStack = ['React', 'Go', 'TypeScript', 'Node', 'Docker'];
 ---
 
 <section id="about" class="site-container site-section">
   <div class="grid gap-8 md:grid-cols-2 items-start">
     <div>
-  <h2 class="text-3xl font-bold mb-2">About David Andrea</h2>
+      <h2 class="text-3xl font-bold mb-2">About David Andrea</h2>
       <p class="mt-2 text-base-content">
         Hi, I'm Dave, a freelance contributor and educator based in Sydney, Nova Scotia, Canada. My background is in teaching mathematics, business technology, and music, but my career goal is to transition into full-time software engineering. I currently work on online coding and AI training projects, with a strong interest in DevOps, LLM tooling, and software development.
       </p>
@@ -12,9 +13,13 @@
         <li>Skilled in Go, TypeScript, Python, React, GraphQL, Docker, and Kubernetes</li>
         <li>Projects: Invoice Web App (GraphQL/Prisma/React), Static Site Generator, AI Filename Fixer</li>
         <li>Education: University of Helsinki (DevOps with Kubernetes), Boot.dev (Go, TypeScript, SSG), Licensed teacher</li>
-      
       </ul>
-  <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <ul class="mt-5 flex flex-wrap gap-2 list-none" aria-label="Tech stack">
+        {techStack.map((tech) => (
+          <li class="badge badge-outline px-3 py-2 text-xs sm:text-sm lg:text-base">{tech}</li>
+        ))}
+      </ul>
+      <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="stat bg-base-200 text-base-content rounded-box">
           <div class="stat-title">Years</div>
           <div class="stat-value text-primary">5+</div>

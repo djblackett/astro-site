@@ -75,139 +75,240 @@ const CONTACT_ENDPOINT = import.meta.env.PUBLIC_CONTACT_ENDPOINT || 'https://ast
     </form>
   </div>
   <script is:inline>
-    const emailBtn = document.querySelector('[data-email-link]');
-    const formWrapper = document.getElementById('contact-form-wrapper');
-    const form = document.getElementById('contact-form');
-    const statusEl = document.getElementById('form-status');
-    const submitBtn = document.getElementById('submit-btn');
-    const submitText = document.getElementById('submit-text');
-    const spinner = document.getElementById('spinner');
-    const messageEl = document.getElementById('message');
-    const counter = document.getElementById('char-counter');
-    // Read endpoint from Astro-rendered data attribute so the client script stays environment agnostic.
-    const endpoint = (document.getElementById('contact')?.dataset.endpoint) || 'https://astro-contact-worker.your-domain.workers.dev/api/contact';
+    (function() {
+      const doc = document;
+      const section = doc.getElementById('contact');
+      if (!section) return;
 
-    // Animation helpers
-    function expand() {
-      if (!formWrapper.classList.contains('hidden')) return; // already visible
-      // Use a manual height transition so the container can animate from display: none.
-      formWrapper.classList.remove('hidden');
-      formWrapper.style.height = '0px';
-      formWrapper.style.opacity = '0';
-      requestAnimationFrame(() => {
+      const emailBtn = section.querySelector('[data-email-link]');
+      const formWrapper = doc.getElementById('contact-form-wrapper');
+      const backToTopBtn = section.querySelector('#back-to-top');
+      const endpoint = section.dataset.endpoint || 'https://astro-contact-worker.your-domain.workers.dev/api/contact';
+      const hiddenClass = 'hidden';
+
+      const safeStorage = {
+        get(key) {
+          try {
+            return window.localStorage.getItem(key);
+          } catch (error) {
+            return null;
+          }
+        },
+        set(key, value) {
+          try {
+            window.localStorage.setItem(key, value);
+          } catch (error) {
+            /* storage might be disabled */
+          }
+        },
+        remove(key) {
+          try {
+            window.localStorage.removeItem(key);
+          } catch (error) {
+            /* storage might be disabled */
+          }
+        }
+      };
+
+      let initialized = false;
+      let form;
+      let statusEl;
+      let submitBtn;
+      let spinner;
+      let messageEl;
+      let counter;
+
+      function getToastRoot() {
+        let root = doc.getElementById('toast-root');
+        if (!root) {
+          root = doc.createElement('div');
+          root.id = 'toast-root';
+          root.style.position = 'fixed';
+          root.style.top = '1rem';
+          root.style.right = '1rem';
+          root.style.display = 'flex';
+          root.style.flexDirection = 'column';
+          root.style.gap = '0.5rem';
+          root.style.zIndex = '1000';
+          doc.body.appendChild(root);
+        }
+        return root;
+      }
+
+      function showToast(message, variant) {
+        const root = getToastRoot();
+        const toast = doc.createElement('div');
+        toast.className = `alert ${variant === 'error' ? 'alert-error' : 'alert-success'} shadow-lg`;
+        toast.textContent = message;
+        root.appendChild(toast);
+        window.setTimeout(() => {
+          toast.style.transition = 'opacity 250ms ease';
+          toast.style.opacity = '0';
+          toast.addEventListener('transitionend', () => {
+            toast.remove();
+            if (!root.childElementCount) {
+              root.remove();
+            }
+          }, { once: true });
+        }, 3200);
+      }
+
+      function ensureInit() {
+        if (initialized) return;
+        initialized = true;
+
+        form = doc.getElementById('contact-form');
+        statusEl = doc.getElementById('form-status');
+        submitBtn = doc.getElementById('submit-btn');
+        spinner = doc.getElementById('spinner');
+        messageEl = doc.getElementById('message');
+        counter = doc.getElementById('char-counter');
+
+        if (messageEl && counter) {
+          counter.textContent = `${messageEl.value.length} / 5000`;
+          messageEl.addEventListener('input', () => {
+            counter.textContent = `${messageEl.value.length} / 5000`;
+          });
+        }
+
+        if (form) {
+          form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!submitBtn || !spinner || !statusEl) return;
+            statusEl.textContent = '';
+            submitBtn.disabled = true;
+            spinner.classList.remove(hiddenClass);
+            try {
+              const formData = new FormData(form);
+              const payload = Object.fromEntries(formData.entries());
+              const tokenField = form.querySelector('input[name="cf-turnstile-response"]');
+              const turnstileToken = tokenField ? tokenField.value : undefined;
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  name: payload.name,
+                  email: payload.email,
+                  message: payload.message,
+                  turnstileToken
+                })
+              });
+              const data = await response.json();
+              if (!response.ok) {
+                statusEl.className = 'text-sm text-error';
+                statusEl.textContent = data.error || 'Failed to send.';
+                showToast('Something went wrong. Please retry or email directly.', 'error');
+              } else {
+                statusEl.className = 'text-sm text-success';
+                statusEl.textContent = 'Message sent successfully!';
+                form.reset();
+                if (counter) counter.textContent = '0 / 5000';
+                if (window.turnstile) window.turnstile.reset();
+                showToast('Thanks! Your message was sent.', 'success');
+              }
+            } catch (error) {
+              statusEl.className = 'text-sm text-error';
+              statusEl.textContent = 'Unexpected error. Please retry or email me instead.';
+              showToast('Unable to send right now. Try again or use email.', 'error');
+            } finally {
+              submitBtn.disabled = false;
+              spinner.classList.add(hiddenClass);
+            }
+          });
+        }
+      }
+
+      function instantShow() {
+        if (!formWrapper) return;
+        ensureInit();
+        formWrapper.classList.remove(hiddenClass);
+        formWrapper.classList.remove('overflow-hidden');
+        formWrapper.style.height = '';
+        formWrapper.style.opacity = '1';
+        safeStorage.set('contactFormExpanded', '1');
+      }
+
+      function expand(scrollIntoView) {
+        if (!formWrapper || !formWrapper.classList.contains(hiddenClass)) return;
+        ensureInit();
+        formWrapper.classList.remove(hiddenClass);
+        formWrapper.classList.add('overflow-hidden');
+        formWrapper.style.height = '0px';
+        formWrapper.style.opacity = '0';
+        requestAnimationFrame(() => {
+          const full = formWrapper.scrollHeight;
+          formWrapper.style.height = full + 'px';
+          formWrapper.style.opacity = '1';
+        });
+        formWrapper.addEventListener('transitionend', function handler(event) {
+          if (event.propertyName !== 'height') return;
+          formWrapper.classList.remove('overflow-hidden');
+          formWrapper.style.height = '';
+          formWrapper.removeEventListener('transitionend', handler);
+          const nameInput = doc.getElementById('name');
+          if (nameInput) nameInput.focus();
+        }, { once: true });
+        if (scrollIntoView) {
+          formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        safeStorage.set('contactFormExpanded', '1');
+      }
+
+      function collapse() {
+        if (!formWrapper || formWrapper.classList.contains(hiddenClass)) return;
+        formWrapper.classList.add('overflow-hidden');
         const full = formWrapper.scrollHeight;
         formWrapper.style.height = full + 'px';
         formWrapper.style.opacity = '1';
-      });
-      formWrapper.addEventListener('transitionend', function handler(e){
-        if (e.propertyName === 'height') {
-          formWrapper.style.height = '';
+        requestAnimationFrame(() => {
+          formWrapper.style.height = '0px';
+          formWrapper.style.opacity = '0';
+        });
+        formWrapper.addEventListener('transitionend', function handler(event) {
+          if (event.propertyName !== 'height') return;
+          formWrapper.classList.add(hiddenClass);
           formWrapper.classList.remove('overflow-hidden');
-          formWrapper.removeEventListener('transitionend', handler);
-          // Focus first field
-          const nameInput = document.getElementById('name');
-          nameInput && nameInput.focus();
-        }
-      });
-      localStorage.setItem('contactFormExpanded', '1');
-    }
-    function collapse() {
-      if (formWrapper.classList.contains('hidden')) return;
-      formWrapper.classList.add('overflow-hidden');
-      const full = formWrapper.scrollHeight;
-      formWrapper.style.height = full + 'px';
-      formWrapper.style.opacity = '1';
-      requestAnimationFrame(() => {
-        formWrapper.style.height = '0px';
-        formWrapper.style.opacity = '0';
-      });
-      formWrapper.addEventListener('transitionend', function handler(e){
-        if (e.propertyName === 'height') {
-          formWrapper.classList.add('hidden');
           formWrapper.style.height = '';
           formWrapper.removeEventListener('transitionend', handler);
-        }
-      });
-      localStorage.removeItem('contactFormExpanded');
-    }
-
-    // Restore persisted state
-    if (localStorage.getItem('contactFormExpanded') === '1') {
-      formWrapper.classList.remove('hidden');
-    }
-
-    if (emailBtn) {
-      emailBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const expanded = emailBtn.getAttribute('aria-expanded') === 'true';
-        if (!expanded) {
-          emailBtn.setAttribute('aria-expanded', 'true');
-          expand();
-          formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          emailBtn.setAttribute('aria-expanded', 'false');
-          collapse();
-        }
-      });
-    }
-
-    // Form logic
-    if (form) {
-      messageEl.addEventListener('input', () => {
-        counter.textContent = `${messageEl.value.length} / 5000`;
-      });
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        statusEl.textContent = '';
-        submitBtn.disabled = true;
-        spinner.classList.remove('hidden');
-        try {
-          // Gather payload + Turnstile token once the user submits.
-          const formData = new FormData(form);
-          const payload = Object.fromEntries(formData.entries());
-          const turnstileToken = (form.querySelector('input[name="cf-turnstile-response"]') || {}).value;
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              name: payload.name,
-              email: payload.email,
-              message: payload.message,
-              turnstileToken
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            statusEl.className = 'text-sm text-error';
-            statusEl.textContent = data.error || 'Failed to send.';
-          } else {
-            statusEl.className = 'text-sm text-success';
-            statusEl.textContent = 'Message sent successfully!';
-            form.reset();
-            counter.textContent = '0 / 5000';
-            if (window.turnstile) window.turnstile.reset();
-          }
-        } catch (err) {
-          statusEl.className = 'text-sm text-error';
-          statusEl.textContent = 'Unexpected error. Please retry.';
-        } finally {
-          submitBtn.disabled = false;
-          spinner.classList.add('hidden');
-        }
-      });
-    }
-
-    // Back to top via delegation so future buttons also trigger the smooth scroll.
-    document.addEventListener('click', (ev) => {
-      const el = ev.target;
-      if (!(el instanceof Element)) return;
-      const btn = el.closest('#back-to-top');
-      if (!btn) return;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      if (location.hash) {
-        history.pushState('', document.title, window.location.pathname + window.location.search);
+        }, { once: true });
+        safeStorage.remove('contactFormExpanded');
       }
-    });
+
+      if (emailBtn) {
+        emailBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          const expanded = emailBtn.getAttribute('aria-expanded') === 'true';
+          if (expanded) {
+            emailBtn.setAttribute('aria-expanded', 'false');
+            collapse();
+          } else {
+            emailBtn.setAttribute('aria-expanded', 'true');
+            expand(true);
+          }
+        });
+      }
+
+      if (safeStorage.get('contactFormExpanded') === '1') {
+        if (emailBtn) emailBtn.setAttribute('aria-expanded', 'true');
+        instantShow();
+      }
+
+      if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (location.hash) {
+            history.replaceState('', document.title, window.location.pathname + window.location.search);
+          }
+        });
+      }
+
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(() => ensureInit(), { timeout: 2000 });
+      } else {
+        window.setTimeout(() => ensureInit(), 1000);
+      }
+    })();
   </script>
   <script async defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
 
