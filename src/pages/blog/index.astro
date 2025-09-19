@@ -157,21 +157,23 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
       {JSON.stringify(postsPayload)}
     </script>
     <script is:inline>
-      type PostSummary = {
-        slug: string;
-        title: string;
-        description: string;
-        tags: string[];
-        href: string;
-        pubDateISO: string;
-        pubDateDisplay: string;
-        readingTime: number;
-        searchText: string;
-      };
+      /**
+       * @typedef {Object} PostSummary
+       * @property {string} slug
+       * @property {string} title
+       * @property {string} description
+       * @property {string[]} tags
+       * @property {string} href
+       * @property {string} pubDateISO
+       * @property {string} pubDateDisplay
+       * @property {number} readingTime
+       * @property {string} searchText
+       */
 
       // Read the pre-rendered post metadata so filters can run fully client-side.
       const postsDataElement = document.getElementById('blog-posts-data');
-      const posts: PostSummary[] = postsDataElement?.textContent
+      /** @type {PostSummary[]} */
+      const posts = postsDataElement?.textContent
         ? JSON.parse(postsDataElement.textContent)
         : [];
       postsDataElement?.remove();
@@ -192,8 +194,8 @@ const canonicalUrl = `${siteOrigin}${withBase('blog')}`;
         return;
       }
 
-      let activeTag = {JSON.stringify(tag)};
-      let query = {JSON.stringify(initialQueryRaw)};
+      let activeTag = ${JSON.stringify(tag)};
+      let query = ${JSON.stringify(initialQueryRaw)};
       const totalPosts = posts.length;
       const DEBOUNCE_DELAY = 200;
       let debounceTimer: number | undefined;
